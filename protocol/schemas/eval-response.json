@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kn1218/llm4pol/protocol/schemas/eval-response.json",
+  "title": "LLM4POL evaluator response -- charter section 7 (M2 freeze), A-1, A-3",
+  "description": "The evaluator's answer to an eval-request: one result per (candidate_id, property) in request order, plus the summed cost in two currencies that are never merged (A-3). `value`, `unit`, `n_replicates` and `spread` are null unless status is `ok`; `reason` is forbidden on `ok`, one of value_absent / candidate_unknown on `missing`, and the exception class name on `error`. A non-ok or cached result carries cost.evals 0. `provenance_tier` has the single value `md_simulated` at M2; a later tier (M8 experimental, M9 live) is added by a new schema version in a new file (charter section 4 A-5), never by editing this one once results cite it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["run_id", "iteration", "results", "cost"],
+  "properties": {
+    "run_id": {"type": "string", "minLength": 1},
+    "iteration": {"type": "integer", "minimum": 0},
+    "results": {"type": "array", "items": {"$ref": "#/$defs/result"}},
+    "cost": {"$ref": "#/$defs/cost"}
+  },
+  "$defs": {
+    "cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evals", "cpu_hours"],
+      "properties": {
+        "evals": {"type": "integer", "minimum": 0},
+        "cpu_hours": {"type": "number", "minimum": 0}
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "property",
+        "status",
+        "value",
+        "unit",
+        "n_replicates",
+        "spread",
+        "backend",
+        "source",
+        "provenance_tier",
+        "cached",
+        "cost"
+      ],
+      "properties": {
+        "candidate_id": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+        "property": {"type": "string", "minLength": 1},
+        "status": {"enum": ["ok", "unsupported", "missing", "error"]},
+        "value": {"type": ["number", "null"]},
+        "unit": {"type": ["string", "null"]},
+        "n_replicates": {"type": ["integer", "null"], "minimum": 1},
+        "spread": {"type": ["number", "null"], "minimum": 0},
+        "backend": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "minLength": 1},
+        "provenance_tier": {"enum": ["md_simulated"]},
+        "cached": {"type": "boolean"},
+        "cost": {"$ref": "#/$defs/cost"},
+        "reason": {"type": "string", "minLength": 1}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "ok"}}},
+          "then": {
+            "properties": {
+              "value": {"type": "number"},
+              "unit": {"type": "string"},
+              "n_replicates": {"type": "integer"}
+            },
+            "not": {"required": ["reason"]}
+          },
+          "else": {
+            "properties": {
+              "value": {"type": "null"},
+              "unit": {"type": "null"},
+              "n_replicates": {"type": "null"},
+              "spread": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "missing"}}},
+          "then": {
+            "required": ["reason"],
+            "properties": {"reason": {"enum": ["value_absent", "candidate_unknown"]}}
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "error"}}},
+          "then": {"required": ["reason"]}
+        },
+        {
+          "if": {"properties": {"status": {"enum": ["unsupported", "missing", "error"]}}},
+          "then": {"properties": {"cost": {"properties": {"evals": {"const": 0}}}}}
+        },
+        {
+          "if": {"properties": {"cached": {"const": true}}},
+          "then": {"properties": {"cost": {"properties": {"evals": {"const": 0}}}}}
+        }
+      ]
+    }
+  }
+}
