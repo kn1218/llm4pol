@@ -226,3 +226,59 @@ def test_real_readme_numbers_reproduce_or_are_documented(
     assert "The dataset card's 73,045" in text
     assert "the corrected static dielectric constant" in text
     assert "| ∧ check_tc == True (protocol filter, not in the README) |" in text
+
+
+# --------------------------------------------------------------------------
+# Plan 02-05: Tg window, tg_rmse ladder and the feasible set (F-23, F-60..F-65)
+# --------------------------------------------------------------------------
+
+REPRODUCED_TG_AND_FEASIBLE: dict[str, str] = {
+    "tg_non_null": "56,064",
+    "tg_inside_window": "52,753",
+    "tg_outside_window": "3,311",
+    "tg_rmse_le_0.05": "36,592",
+    "tg_rmse_le_0.1": "42,232",
+    "tg_rmse_le_0.2": "43,316",
+    "tg_rmse_le_0.5": "43,521",
+    "tg_rmse_le_1.0": "43,545",
+    "feasible_candidates_dev_defaults": "6,793",
+    "candidate_triple_filter_then_median": "40,212",
+}
+
+DOCUMENTED_TG_AND_FEASIBLE: dict[str, str] = {
+    "feasible_pct_dev_defaults": "16.89",
+    "eps_q25_candidates": "2.6524",
+    "eps_q25_triple_rows": "2.6427",
+    "tg_median_all_rows": "488.5",
+    "tg_median_triple_rows": "472.2",
+    "tg_rmse_median": "0.029",
+    "tg_rmse_p95": "0.099",
+    "tg_rmse_p99": "0.236",
+    "tg_rmse_max": "36.3",
+    "candidate_triple_median_then_filter": "40,426",
+    "feasible_rows_dev_defaults": "7,317",
+}
+
+
+def test_real_tg_window_ladder_and_feasible_set(real_load: load.LoadResult, tmp_path: Path) -> None:
+    code, text = _run_validator(real_load, tmp_path)
+    findings = _findings_table(text)
+    assert code == 0, [k for k, v in findings.items() if v[4] in ("FAILED", "MISSING")]
+    for finding_id, expected in REPRODUCED_TG_AND_FEASIBLE.items():
+        assert finding_id in findings, finding_id
+        _, expected_cell, observed_cell, cls, status = findings[finding_id]
+        assert (expected_cell, observed_cell, cls, status) == (
+            expected,
+            expected,
+            "reproduce",
+            "reproduced",
+        ), (finding_id, findings[finding_id])
+    for finding_id, expected in DOCUMENTED_TG_AND_FEASIBLE.items():
+        assert finding_id in findings, finding_id
+        _, expected_cell, _, cls, status = findings[finding_id]
+        assert (expected_cell, cls, status) == (expected, "documented", "documented"), (
+            finding_id,
+            findings[finding_id],
+        )
+    assert "input to the D-16 gate" in text
+    assert "Wording discrepancy raised for the owner: REQUIREMENTS.md DATA-09" in text

@@ -12,8 +12,10 @@ file.
 
 from __future__ import annotations
 
+import ast
 import dataclasses
 import re
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -117,14 +119,28 @@ def test_d10_every_count_table_in_report_names_its_population(
     validate.run(synthetic_root, expected=SYNTHETIC_EXPECTED, report_path=report_path)
     tables = _markdown_tables(report_path.read_text(encoding="utf-8"))
     assert tables, "the report has no tables"
+    assert len(tables) >= 12, f"the report has only {len(tables)} tables"
+    _assert_every_table_names_its_population(tables)
+
+    # The committed number authority obeys the same rule once it exists (plan 02-05).
+    committed = snapshot.report_path(REPO_ROOT)
+    if committed.is_file():
+        _assert_every_table_names_its_population(
+            _markdown_tables(committed.read_text(encoding="utf-8"))
+        )
+
+    with pytest.raises(ValueError, match="population"):
+        report.CountTable(title="x", header=("quantity", "value"), rows=[])
+
+
+def _assert_every_table_names_its_population(
+    tables: list[tuple[list[str], list[list[str]]]],
+) -> None:
     for header, rows in tables:
         assert "population" in header, header
         column = header.index("population")
         for row in rows:
             assert row[column], f"empty population cell in row {row}"
-
-    with pytest.raises(ValueError, match="population"):
-        report.CountTable(title="x", header=("quantity", "value"), rows=[])
 
 
 # --- Plan 02-04: replicate structure and noise floor (D-04, D-07, D-9) ----------------
@@ -398,3 +414,175 @@ def test_findings_documented_class_uses_tolerance_and_reproduce_is_exact() -> No
     assert missing.status == "MISSING"
     assert report.exit_code([missing]) == 1
     assert report.exit_code([report.evaluate_finding("a", reproduce, 43561, population)]) == 0
+
+
+# --- Plan 02-05: Tg ladder, feasible set as a D-16 input, D-8 / A-7 (D-07, D-08, DATA-08..10)
+
+
+REPORT_HEADINGS: tuple[str, ...] = (
+    "## Fetch identity",
+    "## Source shape",
+    "## Scope exclusions and identity",
+    "## Coverage per registry property",
+    "## Physical-range filter counts",
+    "## Dielectric columns: identity and Maxwell check",
+    "## README triple ladder",
+    "## Tg window and tg_rmse ladder",
+    "## Replicate structure and noise floor",
+    "## Feasible set under the development defaults (input to the D-16 gate)",
+    "## Findings",
+)
+DATA_09_FLAG = (
+    'Wording discrepancy raised for the owner: REQUIREMENTS.md DATA-09 reads "filtered by tg_rmse"'
+)
+CANDIDATE_TRIPLE = "candidate-level README triple (filter then median)"
+SMILES_LIKE = re.compile(r"\*[A-Za-z]")
+
+
+def _sections(text: str) -> dict[str, str]:
+    """``## heading`` -> body text, in report order."""
+    sections: dict[str, str] = {}
+    current = "preamble"
+    for line in text.splitlines():
+        if line.startswith("## "):
+            current = line[3:]
+            sections[current] = ""
+        else:
+            sections[current] = sections.get(current, "") + line + "\n"
+    return sections
+
+
+def _synthetic_report(synthetic_root: Path, tmp_path: Path) -> str:
+    load.load(synthetic_root)
+    report_path = tmp_path / "report.md"
+    assert validate.run(synthetic_root, expected={}, report_path=report_path) == 0
+    return report_path.read_text(encoding="utf-8")
+
+
+def test_tg_window_and_tg_rmse_ladder_on_synthetic(synthetic_root: Path, tmp_path: Path) -> None:
+    """DATA-09 / R-2: the window and the ladder are counted at every rung; no cut is applied."""
+    source = _source_rows(synthetic_root)
+    rows, _ = _loaded(synthetic_root)
+    reg = registry.load_registry()
+    assert filters.tg_window_counts(source, reg) == (13, 12, 1)
+
+    triple = filters.readme_triple_mask(rows, reg)
+    assert filters.tg_rmse_ladder_counts(rows, triple, reg) == [
+        (0.05, 5),
+        (0.1, 7),
+        (0.2, 8),
+        (0.5, 8),
+        (1.0, 8),
+    ]
+    replaced_tg = dataclasses.replace(reg.properties["tg"], tg_rmse_ladder=(0.06,))
+    replaced = dataclasses.replace(reg, properties={**reg.properties, "tg": replaced_tg})
+    assert filters.tg_rmse_ladder_counts(rows, triple, replaced) == [(0.06, 6)]
+
+    descriptives = filters.tg_rmse_descriptives(source)
+    assert set(descriptives) == {"median", "p95", "p99", "max"}
+    assert descriptives["max"] == 5.0
+
+    text = _synthetic_report(synthetic_root, tmp_path)
+    tg_section = _sections(text)["Tg window and tg_rmse ladder"]
+    assert DATA_09_FLAG in tg_section
+    assert "| tg_rmse <= 0.1 | in-scope README-triple rows | 7 |" in tg_section
+    assert "| tg outside [100.0, 900.0] K | all source rows | 1 |" in tg_section
+
+
+def test_feasible_set_on_synthetic_is_labelled_as_d16_input(
+    synthetic_root: Path, tmp_path: Path
+) -> None:
+    """DATA-08 / ADR-0005: the feasible set is reported as an input to the D-16 gate."""
+    rows, _ = _loaded(synthetic_root)
+    reg = registry.load_registry()
+    assert filters.DEV_DEFAULT_TG_MIN_K == 400.0
+    assert filters.DEV_DEFAULT_EPS_QUANTILE == 0.25
+    candidates = filters.candidate_level_triple(rows, reg)
+    assert filters.feasible_set(candidates, reg) == filters.FeasibleSet(
+        q25_eps=2.25, tg_min_k=400.0, n_feasible=2, n_population=5, pct=40.0
+    )
+    triple = filters.readme_triple_mask(rows, reg)
+    assert filters.feasible_rows(rows, triple, reg, q25_eps=2.25, tg_min_k=400.0) == 2
+
+    text = _synthetic_report(synthetic_root, tmp_path)
+    section = _sections(text)[
+        "Feasible set under the development defaults (input to the D-16 gate)"
+    ]
+    assert "input to the D-16 gate" in section
+    assert "development default" in section
+    assert (
+        "| feasible candidates (eps_dc_median <= Q25 and tg_median >= 400.0 K) | "
+        f"{CANDIDATE_TRIPLE} | 2 |"
+    ) in section
+    assert f"Q25 of dielectric_const_dc candidate medians | {CANDIDATE_TRIPLE} | 2.2500" in section
+    assert "threshold =" not in section
+
+
+SPLIT_IDENTIFIERS = ("train_test_split", "KFold", "model_selection", "ShuffleSplit")
+
+
+def _identifiers(tree: ast.AST) -> set[str]:
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name):
+            names.add(node.id)
+        elif isinstance(node, ast.Attribute):
+            names.add(node.attr)
+    return names
+
+
+def test_d8_no_row_level_split_code_under_llm4pol_data() -> None:
+    """D-8: no splitter is imported or named under llm4pol.data; the import-linter contract stays."""
+    package = REPO_ROOT / "src" / "llm4pol" / "data"
+    modules = sorted(package.glob("*.py"))
+    assert modules
+    for module in modules:
+        tree = ast.parse(module.read_text(encoding="utf-8"), filename=str(module))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    assert not alias.name.startswith("sklearn"), (module.name, alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                assert not (node.module or "").startswith("sklearn"), (module.name, node.module)
+        for identifier in _identifiers(tree):
+            assert not any(token in identifier for token in SPLIT_IDENTIFIERS), (
+                module.name,
+                identifier,
+            )
+
+    with (REPO_ROOT / "pyproject.toml").open("rb") as handle:
+        contracts = tomllib.load(handle)["tool"]["importlinter"]["contracts"]
+    data_contracts = [c for c in contracts if c.get("source_modules") == ["llm4pol.data"]]
+    assert len(data_contracts) == 1
+    assert "sklearn" in data_contracts[0]["forbidden_modules"]
+
+
+def test_a7_validator_and_loader_never_serve_static_dielectric_const(
+    synthetic_root: Path, tmp_path: Path
+) -> None:
+    """A-7: the barred column is data for the identity, never a served property."""
+    barred = "static_" + "dielectric_const"
+    assert barred not in PROPERTY_COLUMNS
+    assert barred not in registry.load_registry().columns()
+    rows, _ = _loaded(synthetic_root)
+    assert barred in rows.columns, "F-14 needs the column as data"
+
+    text = _synthetic_report(synthetic_root, tmp_path)
+    for header, table_rows in _markdown_tables(text):
+        if header[0] == "property":
+            assert barred not in [row[0] for row in table_rows], header
+    for title, body in _sections(text).items():
+        if title == "Dielectric columns: identity and Maxwell check":
+            continue
+        for line in body.splitlines():
+            if barred in line:
+                assert title == "Findings" and line.startswith("| static_"), (title, line)
+
+
+def test_synthetic_report_has_every_section_in_order(synthetic_root: Path, tmp_path: Path) -> None:
+    """D-07: the eleven sections in order; aggregates only even on the synthetic root."""
+    text = _synthetic_report(synthetic_root, tmp_path)
+    headings = [line for line in text.splitlines() if line.startswith("## ")]
+    assert headings == list(REPORT_HEADINGS)
+    offending = [line for line in text.splitlines() if SMILES_LIKE.search(line)]
+    assert not offending, offending
