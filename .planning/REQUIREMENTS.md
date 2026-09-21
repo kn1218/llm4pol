@@ -21,11 +21,11 @@ subordinate to the charter (ADR-0002).
 - [x] **DATA-03**: The property registry (`protocol/schemas/property-registry.json`) declares key, column, unit and condition for `thermal_conductivity`, `dielectric_const_dc`, `tg`, `rg`, `r2`, `ffv`, `sp_ced`, `density`, `refractive_index`; `static_dielectric_const` is absent (A-7)
 - [x] **DATA-04**: `llm4pol.data.identity` computes `candidate_id = sha256(canonical_psmiles + "|" + tacticity)[:16]` with a stereo-aware canonical repeat-unit SMILES (D-6)
 - [x] **DATA-05**: Rows sharing a `candidate_id` are grouped as replicates; the candidate value is the replicate median with count and spread preserved (D-7, D-9, D-10)
-- [ ] **DATA-06**: `llm4pol.data.validate` emits a validator report (`docs/audit/polyomics-<rev>-validation.md`) that reproduces or documents the difference for: row count, unique repeat units, filtered triple count 43,561, `static_dielectric_const` Maxwell violation 88.9 %, `dielectric_const_dc` violation 0, and resolves 95,335 vs 73,045
+- [x] **DATA-06**: `llm4pol.data.validate` emits a validator report (`docs/audit/polyomics-<rev>-validation.md`) that reproduces or documents the difference for: row count, unique repeat units, filtered triple count 43,561, `static_dielectric_const` Maxwell violation 88.9 %, `dielectric_const_dc` violation 0, and resolves 95,335 vs 73,045
 - [x] **DATA-07**: The validator report records the replicate structure and the replicate noise floor of `thermal_conductivity`, `dielectric_const_dc` and `tg`
-- [ ] **DATA-08**: The validator report states the feasible-set size under the development default thresholds (ε ≤ table Q25, Tg ≥ 400 K)
-- [ ] **DATA-09**: Tg rows are filtered by `tg_rmse` and to 100–900 K; the filter counts are recorded (ADR-0004 §2)
-- [ ] **DATA-10**: Invariants D-7..D-10 and A-7 are promoted from prose to tests in the same change that adds the loader
+- [x] **DATA-08**: The validator report states the feasible-set size under the development default thresholds (ε ≤ table Q25, Tg ≥ 400 K)
+- [x] **DATA-09**: Tg rows are filtered by `tg_rmse` and to 100–900 K; the filter counts are recorded (ADR-0004 §2)
+- [x] **DATA-10**: Invariants D-7..D-10 and A-7 are promoted from prose to tests in the same change that adds the loader
 
 ### Evaluator (charter §13 M2, §7, §4 A-1..A-3)
 
@@ -115,11 +115,11 @@ Which phases cover which requirements. Phase N is charter milestone M(N-1); see 
 | DATA-03 | Phase 2 (Data Foundation) | Complete |
 | DATA-04 | Phase 2 (Data Foundation) | Complete |
 | DATA-05 | Phase 2 (Data Foundation) | Complete |
-| DATA-06 | Phase 2 (Data Foundation) | Pending |
+| DATA-06 | Phase 2 (Data Foundation) | Complete |
 | DATA-07 | Phase 2 (Data Foundation) | Complete |
-| DATA-08 | Phase 2 (Data Foundation) | Pending |
-| DATA-09 | Phase 2 (Data Foundation) | Pending |
-| DATA-10 | Phase 2 (Data Foundation) | Pending |
+| DATA-08 | Phase 2 (Data Foundation) | Complete |
+| DATA-09 | Phase 2 (Data Foundation) | Complete |
+| DATA-10 | Phase 2 (Data Foundation) | Complete |
 | EVAL-01 | Phase 3 (Evaluator (table backend)) | Pending |
 | EVAL-02 | Phase 3 (Evaluator (table backend)) | Pending |
 | EVAL-03 | Phase 3 (Evaluator (table backend)) | Pending |

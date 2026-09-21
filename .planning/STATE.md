@@ -5,16 +5,16 @@ current_phase: 2
 current_phase_name: Data Foundation
 current_plan: 5
 status: executing
-stopped_at: Completed 02-04-PLAN.md
-last_updated: "2026-09-21T19:25:25.598Z"
+stopped_at: Completed 02-05-PLAN.md
+last_updated: "2026-09-21T20:15:29.556Z"
 last_activity: 2026-09-22
 last_activity_desc: Phase 1 complete, transitioned to Phase 02
-state_head: 10acb318f879a02bce34c0dd4390c408e5698da6
+state_head: a161ebff8fa86ad4f374eed5fb0d8c78904b8004
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -66,6 +66,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02 P02 | 7 min | 2 tasks | 4 files |
 | Phase 02 P03 | 10min | 2 tasks | 8 files |
 | Phase 02 P04 | 11 min | 2 tasks | 10 files |
+| Phase 02 P05 | 45min | 4 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,9 @@ Recent decisions affecting current work:
 - [Phase 02]: Plan 02-01 RED evidence is a collection error by the plan's design (type: execute, tdd_mode false); check tdd-red-evidence would say INVALID_RED - recorded in SUMMARY
 - [Phase 2]: 02-03: a present-but-mismatched pinned file is reported (MISMATCH, exit 1), never re-downloaded; the downloader is called only for absent files
 - [Phase 2]: 02-03: canonical_psmiles('') returns None by guard (RDKit parses the empty string as an empty molecule)
+- [Phase 2]: 02-05: static Maxwell share pinned at 88.82 % (38,693 / 43,561 = 88.8249 %); F-13's 88.83 was a rounding slip; the fraction is a reproduce finding
+- [Phase 2]: 02-05: feasible set 6,793 of 40,212 (16.89 %) reported as an input to the D-16 gate; row-level 7,317 pinned under the row Q25
+- [Phase 2]: 02-05: DATA-09 'filtered by tg_rmse' vs R-2 'no cut' flagged for the owner; ladder recorded at every rung, nothing resolved
 
 ### Pending Todos
 
@@ -108,6 +112,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-21T19:25:25.571Z
-Stopped at: Completed 02-04-PLAN.md
+Last session: 2026-09-21T20:15:29.525Z
+Stopped at: Completed 02-05-PLAN.md
 Resume file: None
