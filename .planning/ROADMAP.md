@@ -115,7 +115,22 @@ Charter §8 permits fetch/identity ∥ validate inside this phase.
   5. Schema validation of `eval-request.json` / `eval-response.json` and the first import-linter contract run inside the check gate (charter §13 M2)
 
 **Freezes**: evaluator request/response (`protocol/schemas/eval-request.json`, `eval-response.json`), import boundary in `pyproject.toml [tool.importlinter]` enforcing A-1 and A-2 (charter §7, §13 M2)
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 03-01-PLAN.md — Tracer: contract dataclasses, eval-request/eval-response schemas + committed examples in the schema inventory, `PropertyTable`, `TableBackend` over the candidate parquet, `Evaluator`, `python -m llm4pol.evaluate`; status taxonomy, provenance and 100-batch order on the synthetic table (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 03-02-PLAN.md — `JsonlCache` keyed by (candidate_id, property, backend, source), `BudgetMeter` with two currencies, two-phase evaluate with `BudgetExceeded`, the `error` path (retryable, never cached), CLI `--cache` / `--evals-limit`; A-3 promoted (wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 03-03-PLAN.md — The four import-linter contracts (A-2 in the optional-layers form) with guard-on-the-guard tests, A-1/A-2 promoted, real-file batch of 100 + cached second batch + CLI run, push, CI on both platforms, `03-EVIDENCE.md` (wave 3)
+
+Charter §8: M2 ∥ M3 is permitted (M3 needs only the response format), but inside this phase the waves are sequential — each plan extends the evaluator the tracer proved.
 
 ### Phase 4: Run Management
 
