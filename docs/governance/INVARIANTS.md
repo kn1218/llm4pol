@@ -6,7 +6,8 @@ it. An invariant with guard "prose" is not yet enforced and is a candidate for p
 The data invariants below are derived from `docs/audit/DATA-FOUNDATION-REPORT.md` section 4.
 They are architecture-neutral: they constrain the data, not the design. Architecture
 invariants A-1..A-7 are declared in `docs/MASTER-PLAN.md` §4 with the milestone that adds
-each guard; they are prose until that milestone. D-1..D-6 apply to the PoLyInfo loader
+each guard; they are prose until that milestone. A-1 and A-2 (M2), A-3 (M2 guard; the M3
+ledger guard pending) and A-7 (M1) have landed in the architecture table below. D-1..D-6 apply to the PoLyInfo loader
 (first written at M8); D-7..D-10 apply to every table, PolyOmics included (guard at M1).
 
 ## Repository and process
@@ -42,6 +43,8 @@ can cite them) while every grep gate on test bodies excludes `def test_` lines.
 
 | ID | Invariant | Guard |
 |---|---|---|
+| A-1 | The evaluator is an interface: `table` and `radonpy` share one contract and no code assumes equal accuracy (`provenance_tier`) | `protocol/schemas/eval-response.json` (`provenance_tier` required on every result; enum `md_simulated` at M2, extended by a new schema version per A-5); the `[tool.importlinter]` contracts `A-1: llm4pol.evaluate never imports llm4pol.loop, llm4pol.llm or llm4pol.run` and `A-1: only llm4pol.loop.agents may import llm4pol.llm` (`import-linter` step of `scripts/check.py`); `tests/test_import_boundary.py::test_a1_contracts_are_declared_and_kept_by_the_gate_argv`; `tests/test_evaluate_table.py::test_every_result_carries_backend_source_and_provenance_tier` |
+| A-2 | The loop package never imports the simulation backend (ADR-0003) | the `[tool.importlinter]` layers contract `A-2: llm4pol.loop never imports llm4pol.evaluate.backends.radonpy` (optional layers: KEPT while `llm4pol.loop` is absent, BROKEN on a violating import including from `loop/__init__.py`; `import-linter` step); `tests/test_import_boundary.py::test_a1_a2_contracts_are_declared_with_exact_modules`; `tests/test_import_boundary.py::test_a2_layers_guard_breaks_on_a_violating_import` |
 | A-3 | The budget keeps `evals` and `cpu_hours` as two separately counted currencies; no combined score exists | `llm4pol.evaluate.budget.BudgetMeter` (exactly the two fields; `charge` returns a new meter; `remaining` / `exhausted` read `evals` only); `protocol/schemas/eval-response.json` `$defs/cost` (exactly `evals` and `cpu_hours`, `additionalProperties: false`); `tests/test_evaluate_cache_budget.py::test_a3_budget_meter_keeps_evals_and_cpu_hours_as_separate_currencies`. The ledger-schema guard the charter names lands at M3 (Phase 4) |
 | A-7 | The uncorrected static permittivity column is not a registry property; `dielectric_const_dc` only (ADR-0004) | `protocol/schemas/property-registry.json` propertyNames enum; `scripts/check.py` schema-inventory step; `tests/test_data_registry.py::test_a7_static_dielectric_const_is_rejected_by_the_registry_schema`; `tests/test_data_registry.py::test_load_registry_rejects_an_instance_with_the_barred_key`; `tests/test_data_invariants.py::test_a7_validator_and_loader_never_serve_static_dielectric_const` |
 

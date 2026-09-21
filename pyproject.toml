@@ -57,12 +57,57 @@ include_external_packages = true
 # `forbidden` type is used because an `independence` contract over a single
 # module is vacuous -- it enforces nothing. The forbidden llm4pol modules do
 # not exist yet; import-linter accepts that and reports the contract KEPT.
-# Phase 3 (EVAL-06) widens this to the full boundary table.
+# Phase 3 (EVAL-06) widened this to the full boundary table: the three
+# contracts below (A-1, A-2 and the llm rule) landed in plan 03-03.
 [[tool.importlinter.contracts]]
 name = "llm4pol.data is independent of every other llm4pol subpackage (charter §6) and never imports a splitter (D-8)"
 type = "forbidden"
 source_modules = ["llm4pol.data"]
 forbidden_modules = ["llm4pol.evaluate", "llm4pol.run", "llm4pol.loop", "llm4pol.llm", "sklearn"]
+
+# A-1 (charter section 6 row `evaluate`): the evaluator never reaches the loop,
+# the LLM adapter or run management. The forbidden modules do not exist yet;
+# import-linter skips absent forbidden modules and reports KEPT (RESEARCH F-18).
+[[tool.importlinter.contracts]]
+name = "A-1: llm4pol.evaluate never imports llm4pol.loop, llm4pol.llm or llm4pol.run (charter section 6)"
+type = "forbidden"
+source_modules = ["llm4pol.evaluate"]
+forbidden_modules = ["llm4pol.loop", "llm4pol.llm", "llm4pol.run"]
+
+# A-2 (ADR-0003): the loop never imports the simulation backend. Written as a
+# layers contract with BOTH layers optional (parentheses) because a `forbidden`
+# contract errors when its source module does not exist (F-19) and
+# `llm4pol.loop` is created in Phase 5; a wildcard source `llm4pol.loop.*`
+# would miss an import placed in loop/__init__.py (F-21). KEPT while absent,
+# BROKEN the moment llm4pol.loop (or any module under it) imports the backend,
+# including from loop/__init__.py (F-22; tests/test_import_boundary.py proves
+# it on a scratch copy). Phase 5 may rewrite it as `forbidden` once the
+# package exists.
+[[tool.importlinter.contracts]]
+name = "A-2: llm4pol.loop never imports llm4pol.evaluate.backends.radonpy (ADR-0003, charter section 6)"
+type = "layers"
+layers = ["(llm4pol.evaluate.backends.radonpy)", "(llm4pol.loop)"]
+
+# EVAL-06 third clause (charter section 6 row `llm`): only llm4pol.loop.agents
+# may import llm4pol.llm. Wildcard source covers every present and future
+# subpackage; the agents package is exempted through ignore_imports (F-23).
+# The converse rule -- llm imports nothing of llm4pol -- needs
+# `source_modules = ["llm4pol.llm"]` and lands in Phase 6 when the package
+# exists. Added per REQUIREMENTS.md EVAL-06, which outranks the deferral in
+# 03-CONTEXT.md R-1 (CLAUDE.md precedence); flagged for the owner -- reversal
+# is this block and one test.
+[[tool.importlinter.contracts]]
+name = "A-1: only llm4pol.loop.agents may import llm4pol.llm (charter section 6, EVAL-06)"
+type = "forbidden"
+source_modules = ["llm4pol.*"]
+forbidden_modules = ["llm4pol.llm"]
+ignore_imports = [
+    "llm4pol.loop.agents -> llm4pol.llm",
+    "llm4pol.loop.agents -> llm4pol.llm.*",
+    "llm4pol.loop.agents.* -> llm4pol.llm",
+    "llm4pol.loop.agents.* -> llm4pol.llm.*",
+]
+unmatched_ignore_imports_alerting = "none"
 
 # Explicit schema-validation inventory (CONTEXT D-06; precedent [tool.calfcheck]):
 # a sibling-schema discovery rule would let a deleted or renamed schema silently
