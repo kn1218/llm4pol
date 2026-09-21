@@ -103,17 +103,58 @@ Gated follow-ons; tracked, not in the current roadmap until their gate opens.
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
+Which phases cover which requirements. Phase N is charter milestone M(N-1); see `ROADMAP.md`. Filled during roadmap creation on 2026-09-21.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (filled by roadmap) | | |
+| FOUND-01 | Phase 1 (Foundation) | Pending |
+| FOUND-02 | Phase 1 (Foundation) | Pending |
+| FOUND-03 | Phase 1 (Foundation) | Pending |
+| DATA-01 | Phase 2 (Data Foundation) | Pending |
+| DATA-02 | Phase 2 (Data Foundation) | Pending |
+| DATA-03 | Phase 2 (Data Foundation) | Pending |
+| DATA-04 | Phase 2 (Data Foundation) | Pending |
+| DATA-05 | Phase 2 (Data Foundation) | Pending |
+| DATA-06 | Phase 2 (Data Foundation) | Pending |
+| DATA-07 | Phase 2 (Data Foundation) | Pending |
+| DATA-08 | Phase 2 (Data Foundation) | Pending |
+| DATA-09 | Phase 2 (Data Foundation) | Pending |
+| DATA-10 | Phase 2 (Data Foundation) | Pending |
+| EVAL-01 | Phase 3 (Evaluator (table backend)) | Pending |
+| EVAL-02 | Phase 3 (Evaluator (table backend)) | Pending |
+| EVAL-03 | Phase 3 (Evaluator (table backend)) | Pending |
+| EVAL-04 | Phase 3 (Evaluator (table backend)) | Pending |
+| EVAL-05 | Phase 3 (Evaluator (table backend)) | Pending |
+| EVAL-06 | Phase 3 (Evaluator (table backend)) | Pending |
+| RUN-01 | Phase 4 (Run Management) | Pending |
+| RUN-02 | Phase 4 (Run Management) | Pending |
+| RUN-03 | Phase 4 (Run Management) | Pending |
+| RUN-04 | Phase 4 (Run Management) | Pending |
+| RUN-05 | Phase 4 (Run Management) | Pending |
+| RUN-06 | Phase 4 (Run Management) | Pending |
+| LOOP-01 | Phase 5 (Deterministic End-to-End) | Pending |
+| LOOP-02 | Phase 5 (Deterministic End-to-End) | Pending |
+| LOOP-03 | Phase 5 (Deterministic End-to-End) | Pending |
+| LOOP-04 | Phase 5 (Deterministic End-to-End) | Pending |
+| LOOP-05 | Phase 5 (Deterministic End-to-End) | Pending |
+| LOOP-06 | Phase 5 (Deterministic End-to-End) | Pending |
+| LLM-01 | Phase 6 (LLM Loop) | Pending |
+| LLM-02 | Phase 6 (LLM Loop) | Pending |
+| LLM-03 | Phase 6 (LLM Loop) | Pending |
+| LLM-04 | Phase 6 (LLM Loop) | Pending |
+| LLM-05 | Phase 6 (LLM Loop) | Pending |
+| VAR-01 | Phase 7 (Variance, Controls, Pre-registration) | Pending |
+| VAR-02 | Phase 7 (Variance, Controls, Pre-registration) | Pending |
+| VAR-03 | Phase 7 (Variance, Controls, Pre-registration) | Pending |
+| CMP-01 | Phase 8 (Comparison Arms) | Pending |
+| CMP-02 | Phase 8 (Comparison Arms) | Pending |
 
 **Coverage:**
-- v1 requirements: 40 total
-- Mapped to phases: 0
-- Unmapped: 40 ⚠️
+- v1 requirements: 41 total (3 FOUND + 10 DATA + 6 EVAL + 6 RUN + 6 LOOP + 5 LLM + 3 VAR + 2 CMP)
+- Mapped to phases: 41
+- Unmapped: 0 ✓
+- v2 (gated, not in roadmap): 6 (S2R-01..03 gated D-17, LIVE-01..03 gated D-18)
 
 ---
 *Requirements defined: 2026-09-21*
-*Last updated: 2026-09-21 after derivation from charter v1.0*
+*Last updated: 2026-09-21 after roadmap creation (traceability filled, count corrected 40 → 41)*
