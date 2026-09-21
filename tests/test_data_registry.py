@@ -250,3 +250,78 @@ def test_schema_rejects_an_unknown_filter_key_and_a_bad_range() -> None:
     extra_top_level["extra"] = 1
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(extra_top_level, schema)
+
+
+# --- Task 2: provenance -----------------------------------------------------------------
+
+PROVENANCE_CLASSES = {"paper_or_source", "protocol_decision", "unresolved"}
+FACT_ID = re.compile(r"^F-[0-9]{2}$")
+FILTER_CHOICE_LEAVES = {
+    "properties.thermal_conductivity.filters.check_tc",
+    "properties.tg.filters.tg_rmse_ladder",
+}
+
+
+def _leaf_paths(mapping: dict[str, Any], prefix: str = "") -> set[str]:
+    """Dotted paths of every scalar or list leaf; a `condition` mapping is one leaf."""
+    leaves: set[str] = set()
+    for key, value in mapping.items():
+        path = f"{prefix}.{key}" if prefix else str(key)
+        if isinstance(value, dict) and key != "condition":
+            leaves |= _leaf_paths(value, path)
+        else:
+            leaves.add(path)
+    return leaves
+
+
+def test_provenance_leaf_paths_equal_registry_leaf_paths() -> None:
+    instance_leaves = _leaf_paths(_load_yaml(REGISTRY))
+    provenance_leaves = set(_load_yaml(PROVENANCE)["entries"])
+    missing = sorted(instance_leaves - provenance_leaves)
+    extra = sorted(provenance_leaves - instance_leaves)
+    assert not missing and not extra, f"provenance missing {missing}, extra {extra}"
+    assert len(instance_leaves) == 62, f"expected 62 leaves, found {len(instance_leaves)}"
+
+
+def test_provenance_classes_are_valid_and_complete() -> None:
+    entries = _load_yaml(PROVENANCE)["entries"]
+    for path, entry in entries.items():
+        klass = entry.get("provenance_class")
+        assert klass in PROVENANCE_CLASSES, f"{path}: provenance_class {klass!r}"
+        if klass == "paper_or_source":
+            assert entry.get("source"), f"{path}: paper_or_source needs a source"
+            assert FACT_ID.match(str(entry.get("fact", ""))), f"{path}: fact {entry.get('fact')!r}"
+        elif klass == "protocol_decision":
+            assert entry.get("rationale"), f"{path}: protocol_decision needs a rationale"
+        else:
+            for field in ("rationale", "target_phase", "pass_condition"):
+                assert entry.get(field), f"{path}: unresolved needs {field}"
+
+    unresolved = [p for p, e in entries.items() if e["provenance_class"] == "unresolved"]
+    assert unresolved == ["properties.r2.unit"], f"unresolved leaves: {unresolved}"
+
+    for path, entry in entries.items():
+        tail = path.rsplit(".", 1)[-1]
+        if tail == "unit" and path != "properties.r2.unit":
+            assert entry["provenance_class"] == "paper_or_source", f"{path} is not sourced"
+        if tail in ("physical_range", "role") or path in FILTER_CHOICE_LEAVES:
+            assert entry["provenance_class"] == "protocol_decision", f"{path} is not a decision"
+        if tail == "condition":
+            assert entry["provenance_class"] == "paper_or_source", f"{path} is not sourced"
+            assert entry["fact"] == "F-30", f"{path}: fact {entry['fact']!r} != F-30"
+
+    unit_leaf = entries["properties.tg.filters.tg_rmse_unit"]
+    assert unit_leaf["provenance_class"] == "paper_or_source", "tg_rmse_unit is a source fact"
+    assert unit_leaf["fact"] == "F-23", f"tg_rmse_unit fact {unit_leaf['fact']!r} != F-23"
+
+
+def test_provenance_never_calls_a_range_a_decision() -> None:
+    entries = _load_yaml(PROVENANCE)["entries"]
+    for path, entry in entries.items():
+        rationale = str(entry.get("rationale", ""))
+        assert not re.search(r"D-16.*fixed", rationale), f"{path}: rationale fixes D-16"
+        assert "threshold =" not in rationale, f"{path}: rationale states a threshold"
+        if path.endswith(".physical_range"):
+            assert "physical-range filter" in rationale, (
+                f"{path}: rationale must call the range a physical-range filter (ADR-0005)"
+            )
