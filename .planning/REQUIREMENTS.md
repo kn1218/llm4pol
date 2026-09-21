@@ -10,9 +10,9 @@ subordinate to the charter (ADR-0002).
 
 ### Foundation (charter §13 M0)
 
-- [ ] **FOUND-01**: The check gate (`pixi run --manifest-path env/pixi.toml check`) passes on windows-latest and ubuntu-latest from a committed lock file
-- [ ] **FOUND-02**: `huggingface_hub` is available in the locked environment so the snapshot fetch runs identically on both platforms
-- [ ] **FOUND-03**: Secrets are read only from `.env`; no secret value is printed, logged or committed (R-3), and `.env` is never tracked
+- [x] **FOUND-01**: The check gate (`pixi run --manifest-path env/pixi.toml check`) passes on windows-latest and ubuntu-latest from a committed lock file
+- [x] **FOUND-02**: `huggingface_hub` is available in the locked environment so the snapshot fetch runs identically on both platforms
+- [x] **FOUND-03**: Secrets are read only from `.env`; no secret value is printed, logged or committed (R-3), and `.env` is never tracked
 
 ### Data foundation (charter §13 M1, §6, §10)
 
@@ -107,9 +107,9 @@ Which phases cover which requirements. Phase N is charter milestone M(N-1); see 
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | Phase 1 (Foundation) | Pending |
-| FOUND-02 | Phase 1 (Foundation) | Pending |
-| FOUND-03 | Phase 1 (Foundation) | Pending |
+| FOUND-01 | Phase 1 (Foundation) | Complete |
+| FOUND-02 | Phase 1 (Foundation) | Complete |
+| FOUND-03 | Phase 1 (Foundation) | Complete |
 | DATA-01 | Phase 2 (Data Foundation) | Pending |
 | DATA-02 | Phase 2 (Data Foundation) | Pending |
 | DATA-03 | Phase 2 (Data Foundation) | Pending |
@@ -150,6 +150,7 @@ Which phases cover which requirements. Phase N is charter milestone M(N-1); see 
 | CMP-02 | Phase 8 (Comparison Arms) | Pending |
 
 **Coverage:**
+
 - v1 requirements: 41 total (3 FOUND + 10 DATA + 6 EVAL + 6 RUN + 6 LOOP + 5 LLM + 3 VAR + 2 CMP)
 - Mapped to phases: 41
 - Unmapped: 0 ✓
