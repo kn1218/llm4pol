@@ -1,0 +1,37 @@
+[project]
+name = "llm4pol"
+version = "0.0.1"
+requires-python = ">=3.13"
+description = "LLM4POL -- port of LLM4MOF (interpretable inverse design with LLM agents) to the polymer domain. Pre-charter scaffold."
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "scripts", "tests"]
+# Restrict ruff's scan (both `check` and `format`) to this project's own
+# code: GSD framework templates, planning docs, audit reports and the pixi
+# environment are not this project's source.
+extend-exclude = [".claude", ".planning", ".gsd", ".omc", "docs", "env", "data"]
+
+[tool.mypy]
+python_version = "3.13"
+packages = ["llm4pol"]
+mypy_path = "src"
+strict = true
+
+[tool.importlinter]
+root_package = "llm4pol"
+include_external_packages = true
+# Contracts are added when the architecture is frozen (after the charter,
+# docs/MASTER-PLAN.md, is approved). Until then the section exists so the
+# check gate already exercises import-linter, with zero contracts.

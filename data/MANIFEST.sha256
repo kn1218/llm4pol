@@ -1,0 +1,11 @@
+# data/MANIFEST.sha256 -- expected PoLyInfo-derived raw files (never committed).
+# Format: <sha256>  <size_bytes>  <original filename>   (one entry per line; '#' = comment)
+# Source: C:/Users/molsim/Dropbox/Work to do/LLM4POL  (hashes taken 2026-09-11, files dated 2026-07-21)
+# Verified by tests/test_manifest.py against whatever is present in data/raw/.
+a11091838c5ed121a87210488ade3ed1469424cf1505af049b792b2fac478013  10015654  polymer_final_0824.csv
+06a8f059cd5618878e7a9cb3245c93e2e386c30ef55f3f342383f90bbff7ab0a  985398  230227_Homopolymer_CanonicalSMILES.xlsx
+# KNOWN-CORRUPT: copolymer.zip is a valid zip container whose 15 member CSVs (dens_co, elec_all,
+# elec_co, elong_all, elong_co, tensm_all, tensm_co, tenss_all, tenss_co, tg_all, tg_co, tm_all,
+# tm_co, vol_all, vol_co) all decompress to NUL bytes only -- it carries no data (audit defect D16).
+# Kept in the manifest so its identity is fixed; a re-obtained copy will have a different hash.
+cf1c8684f565620dbd7eba237dfa3d6549c12515ac161d30a1ddf382354873e9  8783  copolymer.zip

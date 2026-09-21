@@ -1,0 +1,46 @@
+[workspace]
+# The multi-platform locked environment. This manifest lives under env/ (not
+# the repository root) so the lock file it produces sits next to the other
+# environment artifacts. Because the workspace root is env/, tasks that must
+# run the repository-root scripts/check.py carry an explicit cwd of "..".
+name = "llm4pol-env"
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64"]
+
+[tasks]
+# Diagnostic: proves the task working directory is the repository root, not
+# env/, before the `check` task is trusted.
+workspace-root-probe = { cmd = '''python -c "import pathlib, sys; ok = pathlib.Path('pyproject.toml').is_file() and pathlib.Path('scripts/check.py').is_file(); print('task-cwd-is-repo-root', ok); sys.exit(0 if ok else 1)"''', cwd = ".." }
+# Byte-identical to `python scripts/check.py` run at the repository root.
+# PYTHONPATH=src makes `llm4pol` importable without an editable install of
+# the project itself (an editable pypi-dependency would force pixi to build
+# the package for linux-64 on this Windows host, which cannot work).
+check = { cmd = "python scripts/check.py", cwd = "..", env = { PYTHONPATH = "src" } }
+check-fast = { cmd = "python scripts/check.py --fast", cwd = "..", env = { PYTHONPATH = "src" } }
+
+# base: cross-platform packages that install and import on both the Windows
+# laptop and Linux/dirac. Every environment uses this feature.
+[feature.base.dependencies]
+python = "3.13.*"
+pandas = "*"
+numpy = "*"
+scipy = "*"
+scikit-learn = "*"
+rdkit = "*"
+pyarrow = "*"
+pydantic = "*"
+openpyxl = "*"
+jsonschema = "*"
+huggingface_hub = ">=1.32.0,<2"
+
+# dev: check-command tooling.
+[feature.dev.dependencies]
+pytest = "*"
+ruff = "*"
+mypy = "*"
+
+[feature.dev.pypi-dependencies]
+import-linter = "*"
+
+[environments]
+default = { features = ["base", "dev"] }

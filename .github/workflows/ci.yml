@@ -1,0 +1,40 @@
+name: check
+
+# workflow_dispatch takes no inputs: it exists purely so the gate can be
+# re-run on demand and so a verification command can watch one exact run id
+# (`gh run list --workflow=ci.yml --event workflow_dispatch`).
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # One job only: scripts/check.py is the whole gate on both matrix legs, so
+  # the enforced gate and the reviewed gate cannot drift apart.
+  check:
+    name: check
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: prefix-dev/setup-pixi@v0.10.2
+        with:
+          pixi-version: v0.80.0
+          manifest-path: env/pixi.toml
+          environments: default
+          cache: true
+
+      # The identical scripts/check.py invocation the developer runs locally --
+      # no extra flags, no reduced test selection, no CI-only branch.
+      - run: pixi run --manifest-path env/pixi.toml check
