@@ -41,3 +41,6 @@ experiments/*
 
 # notebooks: checkpoints and rendered outputs
 .ipynb_checkpoints/
+
+# GSD per-session runtime sentinel (dispatch isolation); .planning/ itself is tracked
+.gsd/

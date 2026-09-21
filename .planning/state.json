@@ -1,0 +1,53 @@
+{
+  "contract": "1.0.0",
+  "flavor": "core",
+  "milestone": "v1.0",
+  "phases": [
+    {
+      "number": "1",
+      "name": "Foundation",
+      "status": "complete"
+    },
+    {
+      "number": "2",
+      "name": "Data Foundation",
+      "status": "pending"
+    },
+    {
+      "number": "3",
+      "name": "Evaluator (table backend)",
+      "status": "pending"
+    },
+    {
+      "number": "4",
+      "name": "Run Management",
+      "status": "pending"
+    },
+    {
+      "number": "5",
+      "name": "Deterministic End-to-End",
+      "status": "pending"
+    },
+    {
+      "number": "6",
+      "name": "LLM Loop",
+      "status": "pending"
+    },
+    {
+      "number": "7",
+      "name": "Variance, Controls, Pre-registration",
+      "status": "pending"
+    },
+    {
+      "number": "8",
+      "name": "Comparison Arms",
+      "status": "pending"
+    }
+  ],
+  "next": {
+    "command": "/gsd:progress --next",
+    "label": "Advance to the next step (plan phase 02)",
+    "reason": "Phase 02 of 8 — needs a plan"
+  },
+  "updated_at": "2026-09-21T16:56:11.917Z"
+}
