@@ -160,13 +160,16 @@ REPRODUCED_README_NUMBERS: dict[str, str] = {
     "raw_string_merges": "5",
     "eps_outside_physical_range": "5,123",
     "dc_maxwell_violations": "0",
+    "static_maxwell_violations_triple": "38,693",
+    "static_maxwell_violations_all": "78,807",
     "check_tc_true": "79,927",
     "check_tc_false": "15,376",
 }
 
 # documented findings pin the observed research value (R-5); the README's figure is a note.
 DOCUMENTED_README_NUMBERS: dict[str, str] = {
-    "static_maxwell_violation_pct_triple": "88.83",
+    # F-13 prints 88.83 %, but its own fraction 38,693 / 43,561 = 88.8249 % rounds to 88.82.
+    "static_maxwell_violation_pct_triple": "88.82",
     "static_maxwell_violation_pct_all": "84.30",
     "dc_identity_max_residual": "5.7e-07",
     "static_minimum": "1.00016",

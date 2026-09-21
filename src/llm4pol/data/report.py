@@ -4,7 +4,9 @@ CONTEXT D-07 (the report is the authority for numbers), D-10 (every count
 names its population -- ``CountTable`` refuses a header without one), R-5
 (two finding classes: ``reproduce`` must equal the expected value exactly;
 ``documented`` is a stated difference within a tolerance). The rendering
-carries no timestamp and no git sha so the file is byte-reproducible.
+carries no timestamp and no git sha so the file is byte-reproducible, and it
+emits no ``*`` so the aggregates-only grep for SMILES-like tokens (charter
+section 10, plan 02-05) has nothing to hit: table titles are level-3 headings.
 """
 
 from __future__ import annotations
@@ -17,6 +19,12 @@ POPULATION = "population"
 
 Value = int | float | str
 
+# Floats print with this many decimals unless the expectation says otherwise.
+DEFAULT_DIGITS = 4
+# A non-zero float below this magnitude prints in scientific notation with
+# two significant digits (identity residuals, F-14).
+SCIENTIFIC_BELOW = 1e-3
+
 
 @dataclass(frozen=True)
 class Expected:
@@ -26,6 +34,7 @@ class Expected:
     value: Value
     tolerance: float | None = None
     note: str = ""
+    digits: int | None = None
 
 
 @dataclass(frozen=True)
@@ -40,6 +49,7 @@ class Finding:
     tolerance: float | None
     note: str
     status: str
+    digits: int | None = None
 
 
 @dataclass(frozen=True)
@@ -107,6 +117,7 @@ def evaluate_finding(
         tolerance=expected.tolerance,
         note=expected.note,
         status=status,
+        digits=expected.digits,
     )
 
 
@@ -114,7 +125,9 @@ def format_int(value: int) -> str:
     return f"{value:,}"
 
 
-def format_float(value: float, digits: int = 4) -> str:
+def format_float(value: float, digits: int = DEFAULT_DIGITS) -> str:
+    if 0.0 < abs(value) < SCIENTIFIC_BELOW:
+        return f"{value:.1e}"
     return f"{value:,.{digits}f}"
 
 
@@ -123,7 +136,7 @@ def format_pct(value: float, digits: int = 2) -> str:
     return f"{100.0 * value:.{digits}f} %"
 
 
-def format_value(value: Value | None) -> str:
+def format_value(value: Value | None, digits: int | None = None) -> str:
     if value is None:
         return "—"
     if isinstance(value, bool):
@@ -131,12 +144,20 @@ def format_value(value: Value | None) -> str:
     if isinstance(value, int):
         return format_int(value)
     if isinstance(value, float):
-        return format_float(value)
+        return format_float(value, DEFAULT_DIGITS if digits is None else digits)
     return value
 
 
+def format_finding_values(finding: Finding) -> tuple[str, str]:
+    """``(expected, observed)`` rendered with the finding's digits."""
+    return (
+        format_value(finding.expected, finding.digits),
+        format_value(finding.observed, finding.digits),
+    )
+
+
 def _render_table(table: CountTable) -> list[str]:
-    lines = [f"**{table.title}**", ""]
+    lines = [f"### {table.title}", ""]
     lines.append("| " + " | ".join(table.header) + " |")
     lines.append("|" + "---|" * len(table.header))
     for row in table.rows:
@@ -171,11 +192,24 @@ def render_markdown(report: Report) -> str:
     lines.append("| finding | population | expected | observed | class | status |")
     lines.append("|---|---|---|---|---|---|")
     for finding in report.findings:
+        expected, observed = format_finding_values(finding)
         lines.append(
-            f"| {finding.finding_id} | {finding.population} | {format_value(finding.expected)} "
-            f"| {format_value(finding.observed)} | {finding.cls} | {finding.status} |"
+            f"| {finding.finding_id} | {finding.population} | {expected} "
+            f"| {observed} | {finding.cls} | {finding.status} |"
         )
     lines.append("")
+    noted = [finding for finding in report.findings if finding.note]
+    if noted:
+        lines.append("### Finding notes")
+        lines.append("")
+        lines.append("| finding | population | tolerance | note |")
+        lines.append("|---|---|---|---|")
+        for finding in noted:
+            tolerance = "—" if finding.tolerance is None else f"{finding.tolerance:g}"
+            lines.append(
+                f"| {finding.finding_id} | {finding.population} | {tolerance} | {finding.note} |"
+            )
+        lines.append("")
     return "\n".join(lines)
 
 

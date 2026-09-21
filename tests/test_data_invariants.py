@@ -334,18 +334,17 @@ def test_maxwell_identity_holds_on_dielectric_rows(
     else:
         result: LoadResult = request.getfixturevalue("real_load")
         rows = pd.read_parquet(result.rows_parquet)
-        residual_bound, static_floor = 1e-5, 1.0
-    residual = filters.dielectric_identity_residual(rows)
+        residual_bound, static_floor = 1e-5, 1.00016
+    residual = filters.dielectric_identity_residual(rows, reg)
     assert float(residual.max()) < residual_bound
-    assert filters.static_minimum(rows) >= static_floor
-    if population == "real":
-        assert filters.static_minimum(rows) == pytest.approx(1.00016, abs=1e-4)
+    assert filters.static_minimum(rows) >= 1.0
+    assert filters.static_minimum(rows) == pytest.approx(static_floor, abs=1e-4)
     everywhere = pd.Series(True, index=rows.index)
-    assert filters.dc_maxwell_violations(rows, everywhere) == 0
+    assert filters.dc_maxwell_violations(rows, everywhere, reg) == 0
     if population == "synthetic":
         source = _source_rows(synthetic_root)
         triple = filters.readme_triple_mask(source, reg)
-        violations, size, pct = filters.static_maxwell_violation_share(source, triple)
+        violations, size, pct = filters.static_maxwell_violation_share(source, triple, reg)
         assert (violations, size, pct) == (10, 10, 100.0)
 
 
@@ -360,7 +359,7 @@ def test_multi_tacticity_counts_on_synthetic(synthetic_root: Path) -> None:
     by_canonical = filters.multi_tacticity_counts_canonical(rows)
     assert by_canonical.with_unknown == 2
     assert by_canonical.without_unknown == 1
-    assert filters.raw_string_merges(source, rows) == 1
+    assert filters.raw_string_merges(rows) == 1
 
 
 def test_card_count_73045_matches_no_column_on_synthetic(synthetic_root: Path) -> None:
