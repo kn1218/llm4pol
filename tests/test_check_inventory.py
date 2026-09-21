@@ -130,9 +130,9 @@ required = true
 
 
 def test_repository_inventory_validates(capsys: pytest.CaptureFixture[str]) -> None:
-    """The committed inventory validates and reports one entry, one instance."""
+    """The committed inventory validates: the registry and both evaluator examples (EVAL-01)."""
     assert validate_inventory(REPO_ROOT) == []
-    assert "llm4polcheck inventory: 1 entries, 1 instances processed" in capsys.readouterr().out
+    assert "llm4polcheck inventory: 3 entries, 3 instances processed" in capsys.readouterr().out
 
 
 def test_check_steps_include_schema_inventory_after_import_linter() -> None:
