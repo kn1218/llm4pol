@@ -2,25 +2,39 @@
 
 One command, identical on Windows and Linux: ``ruff check``, ``ruff format
 --check``, ``mypy`` (strict, on ``src/``), the import boundary
-(import-linter, via ``lint_imports_argv()``), the history secret scan
+(import-linter, via ``lint_imports_argv()``), the explicit schema-validation
+inventory (``[tool.llm4polcheck]`` in ``pyproject.toml``, via
+``validate_inventory()``: every listed protocol instance is validated against
+its JSON Schema -- invariant "a payload with no schema has no guard",
+CLAUDE.md; CONTEXT D-06), the history secret scan
 (``scripts/history_secret_scan.py``, called in-process: self-test, then a
 walk of every reachable commit -- invariant R-3), and ``pytest``. Every
 external tool is invoked through ``sys.executable -m`` or through the
 resolved import-linter argv -- never a bare tool name, never through a
 shell -- so the same invocation behaves identically on both platforms.
 
+``validate_inventory`` and ``STEPS`` are imported by
+``tests/test_check_inventory.py`` (via ``tests/conftest.py``'s ``sys.path``
+insertion) so there is exactly one definition of the inventory step -- the
+test suite runs the same function this command runs.
+
 Does not read ``.env`` and does not print any environment-variable value.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
 import sys
 import sysconfig
+import tomllib
 from collections.abc import Callable
 from pathlib import Path
+
+import jsonschema
+import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -60,6 +74,87 @@ def lint_imports_argv(extra: list[str] | None = None) -> list[str]:
         "from importlinter.cli import lint_imports_command; lint_imports_command()",
         *extra,
     ]
+
+
+def validate_inventory(root: str | os.PathLike[str]) -> list[str]:
+    """Validate the explicit ``[tool.llm4polcheck]`` schema-validation inventory.
+
+    Reads ``pyproject.toml`` at ``root`` and returns a list of failure
+    messages (empty means everything validated). Fails when:
+
+    - the ``[tool.llm4polcheck]`` table is absent entirely (a missing
+      inventory cannot silently mean "nothing to validate");
+    - a declared ``schema`` path does not exist;
+    - a ``required = true`` entry's ``instances`` glob matches zero files;
+    - a matched instance fails to validate against its declared schema.
+
+    A sibling-schema discovery rule would let a deleted or renamed schema
+    silently remove its own validation; the inventory is explicit instead.
+    YAML instances (``.yaml`` / ``.yml``) are loaded with ``yaml.safe_load``
+    and validated exactly like JSON ones, never skipped. Prints how many
+    inventory entries and how many instances were processed, so a zero-entry
+    inventory is visible in the check output rather than silent.
+    """
+    root = Path(root)
+    pyproject_path = root / "pyproject.toml"
+    if not pyproject_path.is_file():
+        return [f"pyproject.toml not found at {pyproject_path}"]
+
+    with open(pyproject_path, "rb") as fh:
+        data = tomllib.load(fh)
+
+    llm4polcheck = data.get("tool", {}).get("llm4polcheck")
+    if llm4polcheck is None:
+        return [
+            (
+                "[tool.llm4polcheck] table is absent from pyproject.toml -- "
+                "schema validation cannot be silenced by deletion"
+            )
+        ]
+
+    entries = llm4polcheck.get("validated", [])
+    failures: list[str] = []
+    n_instances = 0
+
+    for entry in entries:
+        name = entry.get("name", "<unnamed>")
+        schema_rel = entry.get("schema")
+        instances_glob = entry.get("instances")
+        required = bool(entry.get("required", False))
+
+        if not schema_rel:
+            failures.append(f"{name}: entry declares no 'schema' path")
+            continue
+
+        schema_path = root / schema_rel
+        if not schema_path.is_file():
+            failures.append(f"{name}: declared schema path {schema_rel!r} does not exist")
+            continue
+
+        with open(schema_path, encoding="utf-8") as sf:
+            schema = json.load(sf)
+
+        matches = sorted(root.glob(instances_glob)) if instances_glob else []
+        if required and not matches:
+            failures.append(
+                f"{name}: required=true but instances glob {instances_glob!r} matched zero files"
+            )
+            continue
+
+        n_instances += len(matches)
+        for match in matches:
+            with open(match, encoding="utf-8") as mf:
+                if match.suffix.lower() in (".yaml", ".yml"):
+                    instance = yaml.safe_load(mf)
+                else:
+                    instance = json.load(mf)
+            try:
+                jsonschema.validate(instance=instance, schema=schema)
+            except jsonschema.ValidationError as exc:
+                failures.append(f"{name}: instance {match} failed schema validation: {exc.message}")
+
+    print(f"llm4polcheck inventory: {len(entries)} entries, {n_instances} instances processed")
+    return failures
 
 
 def _run(argv: list[str], cwd: Path) -> tuple[bool, str]:
@@ -111,6 +206,13 @@ def step_import_linter() -> bool:
     return ok
 
 
+def step_schema_inventory() -> bool:
+    failures = validate_inventory(ROOT)
+    for failure in failures:
+        print(f"  - {failure}")
+    return not failures
+
+
 def step_history_secret_scan() -> bool:
     # In-process call of the scanner's main (no child process, no shell).
     # The self-test runs first so a zero-match regex fails the step before a
@@ -136,6 +238,7 @@ STEPS: list[tuple[str, Callable[[], bool]]] = [
     ("ruff format --check", step_ruff_format),
     ("mypy", step_mypy),
     ("import-linter", step_import_linter),
+    ("schema-inventory", step_schema_inventory),
     ("history-secret-scan", step_history_secret_scan),
     ("pytest", step_pytest),
 ]

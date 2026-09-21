@@ -55,3 +55,20 @@ name = "llm4pol.data is independent of every other llm4pol subpackage (charter Â
 type = "forbidden"
 source_modules = ["llm4pol.data"]
 forbidden_modules = ["llm4pol.evaluate", "llm4pol.run", "llm4pol.loop", "llm4pol.llm", "sklearn"]
+
+# Explicit schema-validation inventory (CONTEXT D-06; precedent [tool.calfcheck]):
+# a sibling-schema discovery rule would let a deleted or renamed schema silently
+# remove its own validation. This table is authoritative and non-empty by
+# construction -- a missing [tool.llm4polcheck] table is itself a check failure
+# (scripts/check.py::validate_inventory, step `schema-inventory`). YAML instances
+# are validated exactly like JSON ones. The config/*.json sibling-schema pairing
+# test (tests/test_governance.py) stays; this table covers protocol/ instances.
+# Entry shape (each [[tool.llm4polcheck.validated]] table):
+#   name      = human-readable identifier for the validated artifact
+#   instances = glob (relative to repo root) matching the file(s) to validate
+#   schema    = path (relative to repo root) to the JSON Schema file
+#   required  = bool; when true, a zero-match instances glob is a failure
+[tool.llm4polcheck]
+validated = [
+    { name = "property registry v1 (DATA-03, A-7)", instances = "protocol/property-registry_v1.yaml", schema = "protocol/schemas/property-registry.json", required = true },
+]
