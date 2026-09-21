@@ -32,12 +32,17 @@ pydantic = "*"
 openpyxl = "*"
 jsonschema = "*"
 huggingface_hub = ">=1.32.0,<2"
+# Explicit: until now pyyaml reached the lock only as a transitive dependency of
+# huggingface_hub (F-46); the protocol triads are YAML instances, so declare it.
+pyyaml = "*"
 
 # dev: check-command tooling.
 [feature.dev.dependencies]
 pytest = "*"
 ruff = "*"
 mypy = "*"
+# mypy --strict stubs for `import yaml` (typeshed; conda-forge types-pyyaml).
+types-pyyaml = "*"
 
 [feature.dev.pypi-dependencies]
 import-linter = "*"

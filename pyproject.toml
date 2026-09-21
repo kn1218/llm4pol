@@ -26,12 +26,32 @@ extend-exclude = [".claude", ".planning", ".gsd", ".omc", "docs", "env", "data"]
 [tool.mypy]
 python_version = "3.13"
 packages = ["llm4pol"]
-mypy_path = "src"
+# `typings` holds hand-written stubs that mypy searches BEFORE installed stub
+# packages: rdkit 2026.03.6 ships an rdkit-stubs package whose
+# Chem/rdchem.pyi (line 360) is a syntax error mypy 2.3.1 treats as blocking,
+# and neither follow_imports=skip nor ignore_errors suppresses it.
+mypy_path = ["src", "typings"]
 strict = true
+
+[[tool.mypy.overrides]]
+# pandas, pyarrow and jsonschema ship neither stubs nor py.typed. Their values
+# are `Any` under this override; typed functions convert to builtins before
+# returning. Overrides are used instead of stub packages so no unaudited
+# package enters env/pixi.lock (T-02-SC).
+module = ["pandas.*", "pyarrow.*", "jsonschema.*"]
+ignore_missing_imports = true
 
 [tool.importlinter]
 root_package = "llm4pol"
 include_external_packages = true
-# Contracts are added when the architecture is frozen (after the charter,
-# docs/MASTER-PLAN.md, is approved). Until then the section exists so the
-# check gate already exercises import-linter, with zero contracts.
+
+# First contract (charter section 6 package boundary; CONTEXT D-8). The
+# `forbidden` type is used because an `independence` contract over a single
+# module is vacuous -- it enforces nothing. The forbidden llm4pol modules do
+# not exist yet; import-linter accepts that and reports the contract KEPT.
+# Phase 3 (EVAL-06) widens this to the full boundary table.
+[[tool.importlinter.contracts]]
+name = "llm4pol.data is independent of every other llm4pol subpackage (charter §6) and never imports a splitter (D-8)"
+type = "forbidden"
+source_modules = ["llm4pol.data"]
+forbidden_modules = ["llm4pol.evaluate", "llm4pol.run", "llm4pol.loop", "llm4pol.llm", "sklearn"]
