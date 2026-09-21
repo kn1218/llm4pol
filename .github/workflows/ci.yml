@@ -26,7 +26,11 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
+      # Full history: the history-secret-scan step walks `git rev-list --all` and the scanner
+      # refuses a shallow clone, so a depth-1 checkout would fail the gate rather than pass it vacuously.
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
 
       - uses: prefix-dev/setup-pixi@v0.10.2
         with:

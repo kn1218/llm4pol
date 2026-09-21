@@ -15,7 +15,7 @@ each guard; they are prose until that milestone. D-1..D-6 apply to the PoLyInfo 
 |---|---|---|
 | R-1 | No PoLyInfo-derived data file is ever committed | `.gitignore` plus `tests/test_manifest.py` |
 | R-2 | Any file present in `data/raw/` matches `data/MANIFEST.sha256` in sha256 and byte size | `tests/test_manifest.py` |
-| R-3 | No secret value is printed, logged or committed | `.gitignore`; a history secret scan is deferred until there is history |
+| R-3 | No secret value is printed, logged or committed | `.gitignore` dotenv rules; `scripts/history_secret_scan.py` (pattern classes over `git rev-list --all` plus the dotenv-path check over `git log --all --name-only`), run as the `history-secret-scan` step of `scripts/check.py` (self-test, then scan) and in CI on both platforms; `tests/test_history_secret_scan.py` |
 | R-4 | The check gate passes before any commit | `scripts/check.py`, CI on two platforms |
 | R-5 | `src/llm4pol/` contains production code only while `docs/MASTER-PLAN.md` declares `Status: Approved` (ADR-0005) | `tests/test_governance.py::test_charter_status_gates_production_code` |
 

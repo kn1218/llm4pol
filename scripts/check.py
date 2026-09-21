@@ -2,10 +2,12 @@
 
 One command, identical on Windows and Linux: ``ruff check``, ``ruff format
 --check``, ``mypy`` (strict, on ``src/``), the import boundary
-(import-linter, via ``lint_imports_argv()``), and ``pytest``. Every external
-tool is invoked through ``sys.executable -m`` or through the resolved
-import-linter argv -- never a bare tool name, never ``shell=True`` -- so the
-same invocation behaves identically on both platforms.
+(import-linter, via ``lint_imports_argv()``), the history secret scan
+(``scripts/history_secret_scan.py``, called in-process: self-test, then a
+walk of every reachable commit -- invariant R-3), and ``pytest``. Every
+external tool is invoked through ``sys.executable -m`` or through the
+resolved import-linter argv -- never a bare tool name, never through a
+shell -- so the same invocation behaves identically on both platforms.
 
 Does not read ``.env`` and does not print any environment-variable value.
 """
@@ -109,6 +111,18 @@ def step_import_linter() -> bool:
     return ok
 
 
+def step_history_secret_scan() -> bool:
+    # In-process call of the scanner's main (no child process, no shell).
+    # The self-test runs first so a zero-match regex fails the step before a
+    # vacuous scan could pass it; the scan itself refuses a shallow clone.
+    scripts_dir = str(Path(__file__).resolve().parent)
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+    from history_secret_scan import main as scan_main
+
+    return scan_main(["--self-test"]) == 0 and scan_main([]) == 0
+
+
 def step_pytest() -> bool:
     ok, output = _run([sys.executable, "-m", "pytest"], ROOT)
     _print_output(output)
@@ -122,6 +136,7 @@ STEPS: list[tuple[str, Callable[[], bool]]] = [
     ("ruff format --check", step_ruff_format),
     ("mypy", step_mypy),
     ("import-linter", step_import_linter),
+    ("history-secret-scan", step_history_secret_scan),
     ("pytest", step_pytest),
 ]
 
