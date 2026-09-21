@@ -19,7 +19,8 @@ check = { cmd = "python scripts/check.py", cwd = "..", env = { PYTHONPATH = "src
 check-fast = { cmd = "python scripts/check.py --fast", cwd = "..", env = { PYTHONPATH = "src" } }
 # The evaluator CLI (Phase 3, CONTEXT D-07). Mirrors `check`: cwd is the
 # repository root and PYTHONPATH=src; extra arguments pass through, e.g.
-# `pixi run --manifest-path env/pixi.toml evaluate --request protocol/examples/eval-request.example.json`.
+# `pixi run --manifest-path env/pixi.toml evaluate --request protocol/examples/eval-request.example.json`
+# (`--root`, `--cache <jsonl>`, `--evals-limit <n>`; exit 0 / 2 / 3, plan 03-02).
 evaluate = { cmd = "python -m llm4pol.evaluate", cwd = "..", env = { PYTHONPATH = "src" } }
 
 # base: cross-platform packages that install and import on both the Windows
