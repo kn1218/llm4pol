@@ -1,0 +1,164 @@
+# protocol/property-registry_v1.yaml
+#
+# Level: protocol. The property registry of charter §6, frozen at M1 as charter §7 requires
+# (schema: protocol/schemas/property-registry.json; provenance:
+# protocol/property-registry_v1.provenance.yaml). It maps the nine registry keys to columns
+# of PolyOmics `general_polymers` at the pinned revision below, with each column's unit, the
+# verification status of that unit, the run condition every value was produced under, the
+# role the key plays in the loop, and the physical range the validator applies.
+#
+# Change route (A-5): once a reported result cites registry_version v1, this file is NEVER
+# edited in place. A changed registry is a NEW file, protocol/property-registry_v2.yaml,
+# written alongside this one with its own schema pairing and provenance.
+#
+# Float-formatting rule (F-47): every float carries a decimal point (1.0e-3, never 1e-3),
+# because PyYAML's YAML 1.1 loader reads `1e-3` as the string '1e-3'. A number written as a
+# string would silently change every comparison downstream; test_registry_numbers_are_numbers_not_strings
+# guards it.
+#
+# `physical_range` is the validator's physical-range filter — the bounds outside which a row is
+# counted as unphysical and reported — and NOT a D-16 threshold. D-16 (the constraint
+# thresholds of the design problem) is fixed at the Phase 7 pre-registration (ADR-0005), not
+# here.
+#
+# `filters.check_tc` and `filters.tg_rmse_ladder` are protocol quality filters. The validator
+# prints the count under each of them beside the unfiltered README reproduction (43,561) so
+# nothing is lost either way; which population the evaluator serves is a Phase 3 decision. No
+# `tg_rmse` cut is applied in M1 (R-2): the ladder is recorded, and `tg_rmse` is the sum of
+# squared density residuals of RadonPy's two-line fit, in (g/cm^3)^2, not kelvin (F-23).
+#
+# A-7: the registry serves `dielectric_const_dc` only. The uncorrected static permittivity
+# column of the source file is not a registry key, is not a column of any entry, and cannot be
+# added: the schema's `propertyNames` enum admits exactly the nine keys below (ADR-0004).
+#
+# `unit_status` is `verified` when RadonPy source, arXiv:2511.11626 Table S3 and a data identity
+# agree (R-4); `unverified` when they conflict, in which case `unit_note` states the conflict.
+
+schema_version: 1
+registry_version: v1
+snapshot: polyomics:general_polymers@041e5834
+revision: 041e5834ea1a48682fae12dc39ccd723bcd4f771
+
+properties:
+  thermal_conductivity:
+    column: thermal_conductivity
+    unit: W/(m*K)
+    unit_status: verified
+    condition:
+      temperature_K: 300
+      pressure_atm: 1
+      forcefield: GAFF2_mod
+      charges: RESP
+      state: isotropic_amorphous
+    role: objective
+    physical_range: [0.0, 2.0]
+    filters:
+      check_tc: true
+
+  dielectric_const_dc:
+    column: dielectric_const_dc
+    unit: "1"
+    unit_status: verified
+    condition:
+      temperature_K: 300
+      pressure_atm: 1
+      forcefield: GAFF2_mod
+      charges: RESP
+      state: isotropic_amorphous
+    role: constraint
+    physical_range: [1.0, 20.0]
+
+  tg:
+    column: tg
+    unit: K
+    unit_status: verified
+    condition:
+      temperature_K: 300
+      pressure_atm: 1
+      forcefield: GAFF2_mod
+      charges: RESP
+      state: isotropic_amorphous
+    role: constraint
+    physical_range: [100.0, 900.0]
+    filters:
+      tg_rmse_ladder: [0.05, 0.1, 0.2, 0.5, 1.0]
+      tg_rmse_unit: (g/cm^3)^2
+
+  rg:
+    column: Rg
+    unit: angstrom
+    unit_status: verified
+    condition:
+      temperature_K: 300
+      pressure_atm: 1
+      forcefield: GAFF2_mod
+      charges: RESP
+      state: isotropic_amorphous
+    role: intermediate
+    physical_range: [0.0, 200.0]
+
+  r2:
+    column: r2
+    unit: nm^2
+    unit_status: unverified
+    unit_note: "arXiv:2511.11626 Table S3 lists angstrom^2; the data are consistent only with nm^2 (r2 / Rg^2 = 5.58 with r2 in nm^2 and Rg in angstrom; ideal chain 6). Unresolved until a second source confirms (F-25); r2 is a validator variable only."
+    condition:
+      temperature_K: 300
+      pressure_atm: 1
+      forcefield: GAFF2_mod
+      charges: RESP
+      state: isotropic_amorphous
+    role: validator
+    physical_range: [0.0, 2000.0]
+
+  ffv:
+    column: fractional_free_volume
+    unit: "1"
+    unit_status: verified
+    condition:
+      temperature_K: 300
+      pressure_atm: 1
+      forcefield: GAFF2_mod
+      charges: RESP
+      state: isotropic_amorphous
+    role: intermediate
+    physical_range: [0.0, 1.0]
+
+  sp_ced:
+    column: sp_ced
+    unit: MPa
+    unit_status: verified
+    condition:
+      temperature_K: 300
+      pressure_atm: 1
+      forcefield: GAFF2_mod
+      charges: RESP
+      state: isotropic_amorphous
+    role: intermediate
+    physical_range: [0.0, 2000.0]
+
+  density:
+    column: density
+    unit: g/cm^3
+    unit_status: verified
+    condition:
+      temperature_K: 300
+      pressure_atm: 1
+      forcefield: GAFF2_mod
+      charges: RESP
+      state: isotropic_amorphous
+    role: intermediate
+    physical_range: [0.5, 2.5]
+
+  refractive_index:
+    column: refractive_index
+    unit: "1"
+    unit_status: verified
+    condition:
+      temperature_K: 300
+      pressure_atm: 1
+      forcefield: GAFF2_mod
+      charges: RESP
+      state: isotropic_amorphous
+    role: validator
+    physical_range: [1.0, 3.0]

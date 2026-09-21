@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kn1218/llm4pol/protocol/schemas/property-registry.json",
+  "title": "LLM4POL property registry — charter §6, §7 (M1 freeze), A-7",
+  "description": "Registry keys map to PolyOmics general_polymers columns; the propertyNames enum admits exactly the nine charter keys, so the registry serves dielectric_const_dc only and the uncorrected static permittivity column cannot be registered (A-7); physical_range is the validator's physical-range filter, not a D-16 threshold (ADR-0005).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "registry_version",
+    "snapshot",
+    "revision",
+    "properties"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "registry_version": { "const": "v1" },
+    "snapshot": {
+      "type": "string",
+      "pattern": "^polyomics:general_polymers@[0-9a-f]{8}$"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "properties": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "thermal_conductivity",
+          "dielectric_const_dc",
+          "tg",
+          "rg",
+          "r2",
+          "ffv",
+          "sp_ced",
+          "density",
+          "refractive_index"
+        ]
+      },
+      "required": [
+        "thermal_conductivity",
+        "dielectric_const_dc",
+        "tg",
+        "rg",
+        "r2",
+        "ffv",
+        "sp_ced",
+        "density",
+        "refractive_index"
+      ],
+      "minProperties": 9,
+      "maxProperties": 9,
+      "additionalProperties": { "$ref": "#/$defs/property" }
+    }
+  },
+  "$defs": {
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "temperature_K",
+        "pressure_atm",
+        "forcefield",
+        "charges",
+        "state"
+      ],
+      "properties": {
+        "temperature_K": { "const": 300 },
+        "pressure_atm": { "const": 1 },
+        "forcefield": { "const": "GAFF2_mod" },
+        "charges": { "const": "RESP" },
+        "state": { "const": "isotropic_amorphous" }
+      }
+    },
+    "property": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "column",
+        "unit",
+        "unit_status",
+        "condition",
+        "role",
+        "physical_range"
+      ],
+      "properties": {
+        "column": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "unit": { "type": "string", "minLength": 1 },
+        "unit_status": { "enum": ["verified", "unverified"] },
+        "unit_note": { "type": "string", "minLength": 1 },
+        "condition": { "$ref": "#/$defs/condition" },
+        "role": {
+          "enum": ["objective", "constraint", "intermediate", "validator"]
+        },
+        "physical_range": {
+          "type": "array",
+          "prefixItems": [{ "type": "number" }, { "type": "number" }],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "filters": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "check_tc": { "type": "boolean" },
+            "tg_rmse_ladder": {
+              "type": "array",
+              "items": { "type": "number", "exclusiveMinimum": 0 },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "tg_rmse_unit": { "const": "(g/cm^3)^2" }
+          }
+        }
+      },
+      "if": {
+        "properties": { "unit_status": { "const": "unverified" } },
+        "required": ["unit_status"]
+      },
+      "then": { "required": ["unit_note"] }
+    }
+  }
+}
