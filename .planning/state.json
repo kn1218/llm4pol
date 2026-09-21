@@ -16,7 +16,7 @@
     {
       "number": "3",
       "name": "Evaluator (table backend)",
-      "status": "in_progress"
+      "status": "complete"
     },
     {
       "number": "4",
@@ -46,8 +46,8 @@
   ],
   "next": {
     "command": "/gsd:progress --next",
-    "label": "Advance to the next step (verify)",
-    "reason": "Phase 3 of 8 · ready to verify"
+    "label": "Advance to the next step (plan phase 4)",
+    "reason": "Phase 4 of 8 — needs a plan"
   },
-  "updated_at": "2026-09-21T22:15:24.684Z"
+  "updated_at": "2026-09-21T22:28:12.723Z"
 }
