@@ -2,8 +2,11 @@
 
 The pinned CSV (196,910,783 bytes) is never committed, so every test here
 depends on the ``real_csv`` session fixture, which skips with a stated reason
-when the file is absent (D-09). Locally the three tests must PASS: they are
-the real-file proof of the tracer (F-02, F-03, F-06, F-07, F-32, F-37).
+when the file is absent (D-09). Locally every test must PASS: the first three
+are the real-file proof of the tracer (F-02, F-03, F-06, F-07, F-32, F-37);
+plan 02-03 adds the identity counts, the declared-schema round-trip and the
+candidate sizes (F-07, F-37, F-44, F-50). No expected number here is ever
+edited to make a test pass; a mismatch is a loader defect.
 """
 
 # Measured wall time on the Windows development machine (2026-09-22, plan 02-01):
@@ -17,10 +20,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+import pyarrow.parquet as pq
 import pytest
 
 from conftest import REPO_ROOT
 from llm4pol.data import fetch, load, snapshot, validate
+from llm4pol.data.schema import DECLARED_FIELDS
 
 
 def _refusing_downloader(**_kwargs: Any) -> str:
@@ -62,3 +68,38 @@ def test_real_validate_reproduces_source_shape(real_load: load.LoadResult, tmp_p
         "| unique_candidate_ids | in-scope rows | 78,676 | 78,676 | reproduce | reproduced |"
         in text
     )
+
+
+# --------------------------------------------------------------------------
+# Plan 02-03: identity counts, declared schema, candidate sizes (F-07, F-37, F-44, F-50)
+# --------------------------------------------------------------------------
+
+
+def test_real_identity_counts_match_research(real_load: load.LoadResult) -> None:
+    assert real_load.excluded_second_monomer == 3
+    assert real_load.excluded_parse_failure == 0
+    rows = pd.read_parquet(real_load.rows_parquet, columns=["canonical_psmiles", "candidate_id"])
+    assert rows["canonical_psmiles"].notna().all()
+    assert rows["candidate_id"].notna().all()
+    assert rows["canonical_psmiles"].nunique() == 78373
+    assert rows["candidate_id"].nunique() == 78676
+
+
+def test_real_parquet_schema_round_trips_with_declared_types(real_load: load.LoadResult) -> None:
+    metadata = pq.read_metadata(real_load.rows_parquet)
+    assert metadata.num_rows == 95332
+    assert metadata.num_columns == 262
+    schema = pq.read_schema(real_load.rows_parquet)
+    for field in DECLARED_FIELDS:
+        assert schema.field(field.name).type == field.type, field.name
+
+
+def test_real_candidates_have_unique_ids_and_sizes_sum_to_in_scope_rows(
+    real_load: load.LoadResult,
+) -> None:
+    candidates = pd.read_parquet(real_load.candidates_parquet, columns=["candidate_id", "n_rows"])
+    assert candidates["candidate_id"].nunique() == 78676
+    assert len(candidates) == 78676
+    assert int(candidates["n_rows"].sum()) == 95332
+    assert int(candidates["n_rows"].max()) == 17
+    assert int((candidates["n_rows"] >= 2).sum()) == 12983
