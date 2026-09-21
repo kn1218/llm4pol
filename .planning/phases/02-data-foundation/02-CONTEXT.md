@@ -149,3 +149,14 @@ a stated reason when `data/raw/polyomics/<sha>/` is absent — the same pattern 
 
 *Phase: 02-data-foundation*
 *Context gathered: 2026-09-22 from the charter, the 2026-09-11 analysis and direct inspection of the pinned file*
+
+<post_research_decisions>
+## Decisions after 02-RESEARCH.md (2026-09-22, orchestrator; owner unavailable — recorded as development defaults)
+
+- **R-1 Unknown tacticity.** NaN `tacticity` maps to `"unknown"` and stays a separate candidate for M1 (303 twins arise); the report prints both the with-twins and folded counts. Raised for the owner before Phase 3.
+- **R-2 Populations.** The report prints the README triple (`TC` non-null ∧ `dielectric_const_dc` ∈ [1, 20] ∧ `tg` ∈ [100, 900] K = 43,561) and the quality-filtered triple (`check_tc == True`, 42,733) side by side; which one the evaluator serves is a Phase 3 decision. `tg_rmse` is a sum of squared density residuals, not kelvin: the registry records the ladder (≤ 0.1 → 42,232; ≤ 0.2 → 43,316) and applies no `tg_rmse` cut in M1.
+- **R-3 Narrative correction.** `static_dielectric_const` is the uncorrected orientational permittivity of non-polarisable MD, and `dielectric_const_dc = static_dielectric_const − 1 + refractive_index²` holds on all 93,488 rows (residual < 1e-5). A-7 stands as a rule (the registry serves `dielectric_const_dc` only); the validator report states the identity and the 88.83 % figure, and `docs/research/databases/README.md` gets a dated correction note pointing at the report. ADR-0004's consequence sentence stays; its "broken column" wording is superseded by the report.
+- **R-4 Units.** Registry `unit_status: verified` for TC (W/(m·K)), Tg (K), density (g/cm³), Rg (Å), ffv (–), sp_ced (MPa = J/cm³), refractive_index (–), dielectric_const_dc (–); `r2` `unverified` with both candidate units stated.
+- **R-5 Exit codes.** Validator findings have two classes: `reproduce` (must equal the expected value) and `documented` (a stated difference with tolerance: Maxwell share 88.83 % ± 0.05, identity residual < 1e-5). Any other drift exits 1.
+- **R-6 Environment.** `pyyaml` and `types-pyyaml` are added to `env/pixi.toml` (research F-facts: pyyaml only transitive today; mypy strict needs the stubs).
+</post_research_decisions>
