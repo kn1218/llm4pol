@@ -128,3 +128,13 @@ guard cells flip from "prose"/"(M2)" to the contract and test names in the same 
 
 *Phase: 03-evaluator-table-backend*
 *Context gathered: 2026-09-22 from the charter and the Phase 2 code (owner asleep; no interview)*
+
+<post_research_decisions>
+## Decisions after 03-RESEARCH.md (2026-09-22, orchestrator; owner unavailable — development defaults)
+
+- **R-1 A-2 contract form.** import-linter errors on a `forbidden` contract whose *source* package is absent, so D-06 clause 2 uses the `layers` form now — `layers = ["(llm4pol.evaluate.backends.radonpy)", "(llm4pol.loop)"]` (KEPT while `loop` is absent, BROKEN on a violating import once it exists); it is rewritten as `forbidden` when Phase 5 creates `llm4pol.loop`. The "only `loop.agents` may import `llm`" rule enters with Phase 6, not now.
+- **R-2 Charging.** `evals` is charged once per distinct candidate per request on its first non-cached `ok` result (D-04 literal reading), pinned by a test; the loop's 400-eval arithmetic counts candidates.
+- **R-3 Schema strictness.** `provenance_tier` is a one-value enum `["md_simulated"]` for `table` (extended by M8/M9 ADRs); a malformed `candidate_id` (not 16 lowercase hex) is a request-schema failure (exit 2), not `missing`.
+- **R-4 Cache.** Persist per request with `flush()` (no per-line fsync); never cache `error`; stored records keep `cached: false` and a hit is returned via `dataclasses.replace(hit, cached=True, cost=Cost(0, 0.0))`; NaN medians/std become `None` before serialisation (`allow_nan=False`).
+- **R-5 Backend load.** `pyarrow.read_table` → pandas, `candidate_id` as index (11 µs lookups); the table is loaded once per `TableBackend` instance.
+</post_research_decisions>
