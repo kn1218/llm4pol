@@ -1,10 +1,11 @@
 """The validator: reproduce the pinned snapshot's numbers and write the report (D-07).
 
-Sections written by this plan: ``Fetch identity``, ``Source shape``, ``Scope
-exclusions and identity``, ``Findings``. Later plans append sections and
-expectations. Exit 0 when every expectation is reproduced or documented, 1 on
-any ``FAILED`` or ``MISSING`` finding, 2 when an input is missing or does not
-match the manifest (D-10).
+Sections: ``Fetch identity``, ``Source shape``, ``Scope exclusions and
+identity`` (plan 02-01), ``Replicate structure and noise floor`` (plan 02-04:
+D-04, D-9, charter section 13 M1 (4)), ``Findings``. Later plans append
+sections and expectations. Exit 0 when every expectation is reproduced or
+documented, 1 on any ``FAILED`` or ``MISSING`` finding, 2 when an input is
+missing or does not match the manifest (D-10).
 """
 
 from __future__ import annotations
@@ -14,13 +15,23 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 from llm4pol.data import snapshot
 from llm4pol.data.fetch import parse_manifest, verify_file
 from llm4pol.data.load import LoaderError, read_source
+from llm4pol.data.registry import Registry, load_registry
+from llm4pol.data.replicates import (
+    MULTI_ROW_CANDIDATES,
+    NOISE_POPULATION_ALL,
+    NOISE_POPULATION_TRIPLE,
+    VERSION_COLUMNS,
+    replicate_section,
+)
 from llm4pol.data.report import (
+    DOCUMENTED,
     REPRODUCE,
     CountTable,
     Expected,
@@ -40,7 +51,12 @@ ALL_SOURCE_ROWS = "all source rows"
 IN_SCOPE_ROWS = "in-scope rows"
 PINNED_FILES = "pinned revision files"
 
-# F-06, F-07, F-32, F-37 measured on the pinned bytes; later plans append.
+_F52_NOTE = "F-52 counted on (smiles_list, tacticity) groups; here by candidate_id (F-35 merges)"
+_NOISE_NOTE = "F-55: median over candidates with n >= 2 of std / |median|"
+_TRIPLE_NOTE = "F-56: rows filtered to the README triple first, then grouped (F-61)"
+
+# F-06, F-07, F-32, F-37 measured on the pinned bytes (plan 02-01); F-50, F-52,
+# F-55, F-56 (plan 02-04); later plans append.
 EXPECTED_POLYOMICS: dict[str, Expected] = {
     "source_rows": Expected(REPRODUCE, 95335),
     "source_columns": Expected(REPRODUCE, 259),
@@ -50,6 +66,18 @@ EXPECTED_POLYOMICS: dict[str, Expected] = {
     "in_scope_rows": Expected(REPRODUCE, 95332),
     "unique_canonical": Expected(REPRODUCE, 78373),
     "unique_candidate_ids": Expected(REPRODUCE, 78676),
+    "replicate_multi_row_candidates": Expected(REPRODUCE, 12983),
+    "replicate_max_rows": Expected(REPRODUCE, 17),
+    "same_version_replicate_candidates": Expected(DOCUMENTED, 1888, 10, _F52_NOTE),
+    "cross_version_rerun_candidates": Expected(DOCUMENTED, 11096, 10, _F52_NOTE),
+    "noise_floor_rel_thermal_conductivity": Expected(DOCUMENTED, 0.0369, 0.001, _NOISE_NOTE),
+    "noise_floor_rel_dielectric_const_dc": Expected(DOCUMENTED, 0.0084, 0.001, _NOISE_NOTE),
+    "noise_floor_rel_tg": Expected(DOCUMENTED, 0.0577, 0.001, _NOISE_NOTE),
+    "noise_floor_rel_density": Expected(DOCUMENTED, 0.0034, 0.001, _NOISE_NOTE),
+    "noise_floor_abs_tg": Expected(DOCUMENTED, 30.2, 0.5, _NOISE_NOTE + " (absolute, K)"),
+    "noise_floor_triple_rel_thermal_conductivity": Expected(DOCUMENTED, 0.0431, 0.001, _TRIPLE_NOTE),
+    "noise_floor_triple_rel_dielectric_const_dc": Expected(DOCUMENTED, 0.0112, 0.001, _TRIPLE_NOTE),
+    "noise_floor_triple_rel_tg": Expected(DOCUMENTED, 0.0540, 0.001, _TRIPLE_NOTE),
 }
 
 # The population each observed quantity is drawn from (D-10).
@@ -62,6 +90,18 @@ POPULATIONS: dict[str, str] = {
     "in_scope_rows": IN_SCOPE_ROWS,
     "unique_canonical": IN_SCOPE_ROWS,
     "unique_candidate_ids": IN_SCOPE_ROWS,
+    "replicate_multi_row_candidates": IN_SCOPE_ROWS,
+    "replicate_max_rows": IN_SCOPE_ROWS,
+    "same_version_replicate_candidates": MULTI_ROW_CANDIDATES,
+    "cross_version_rerun_candidates": MULTI_ROW_CANDIDATES,
+    "noise_floor_rel_thermal_conductivity": NOISE_POPULATION_ALL,
+    "noise_floor_rel_dielectric_const_dc": NOISE_POPULATION_ALL,
+    "noise_floor_rel_tg": NOISE_POPULATION_ALL,
+    "noise_floor_rel_density": NOISE_POPULATION_ALL,
+    "noise_floor_abs_tg": NOISE_POPULATION_ALL,
+    "noise_floor_triple_rel_thermal_conductivity": NOISE_POPULATION_TRIPLE,
+    "noise_floor_triple_rel_dielectric_const_dc": NOISE_POPULATION_TRIPLE,
+    "noise_floor_triple_rel_tg": NOISE_POPULATION_TRIPLE,
 }
 
 _SEVENTY_THREE_THOUSAND = (
@@ -196,14 +236,28 @@ def _scope_and_identity(
     return section, observed
 
 
-def _build_report(root: Path, expected: Expectations, processed_dir: Path | None) -> Report:
+def _replicates(processed: Path, registry: Registry) -> tuple[Section, dict[str, Value]]:
+    """Read the candidate table and the row columns the replicate section needs (D-7)."""
+    rows_path = snapshot.rows_parquet(processed)
+    names = set(pq.read_schema(rows_path).names)
+    wanted = ("candidate_id", "canonical_psmiles", "tacticity", *registry.columns(), *VERSION_COLUMNS)
+    rows = pd.read_parquet(rows_path, columns=[name for name in wanted if name in names])
+    candidates = pd.read_parquet(snapshot.candidates_parquet(processed))
+    section, observed = replicate_section(rows, candidates, registry, rows_population=IN_SCOPE_ROWS)
+    return section, dict(observed)
+
+
+def _build_report(
+    root: Path, expected: Expectations, processed_dir: Path | None, registry: Registry
+) -> Report:
     fetch_section, csv_sha = _fetch_identity(root)
     shape_section, observed = _source_shape(root)
     processed = processed_dir if processed_dir is not None else snapshot.processed_dir(root)
     scope_section, scope_observed = _scope_and_identity(
         processed, csv_sha, int(observed["source_rows"])
     )
-    observed = {**observed, **scope_observed}
+    replicate_sec, replicate_observed = _replicates(processed, registry)
+    observed = {**observed, **scope_observed, **replicate_observed}
     findings: list[Finding] = [
         evaluate_finding(finding_id, expectation, observed.get(finding_id), POPULATIONS[finding_id])
         for finding_id, expectation in expected.items()
@@ -211,7 +265,7 @@ def _build_report(root: Path, expected: Expectations, processed_dir: Path | None
     return Report(
         snapshot=snapshot.SNAPSHOT_ID,
         revision=snapshot.POLYOMICS_REVISION,
-        sections=[fetch_section, shape_section, scope_section],
+        sections=[fetch_section, shape_section, scope_section, replicate_sec],
         findings=findings,
     )
 
@@ -222,10 +276,17 @@ def run(
     expected: Expectations = EXPECTED_POLYOMICS,
     processed_dir: Path | None = None,
     report_path: Path | None = None,
+    registry: Registry | None = None,
 ) -> int:
-    """Validate ``root`` against ``expected``; write the report; return the exit code."""
+    """Validate ``root`` against ``expected``; write the report; return the exit code.
+
+    ``registry`` defaults to the protocol instance (``load_registry()``); a
+    ``RegistryError`` is a ``ValueError`` and exits 2 like any other bad input.
+    """
     try:
-        report = _build_report(root, expected, processed_dir)
+        report = _build_report(
+            root, expected, processed_dir, registry if registry is not None else load_registry()
+        )
     except (LoaderError, OSError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
