@@ -6,6 +6,12 @@ when the file is absent (D-09). Locally the three tests must PASS: they are
 the real-file proof of the tracer (F-02, F-03, F-06, F-07, F-32, F-37).
 """
 
+# Measured wall time on the Windows development machine (2026-09-22, plan 02-01):
+# the session fixture `real_load` (read_csv + 78,379 RDKit canonicalisations +
+# two parquet writes) takes 16.2-16.5 s of setup; `test_real_validate_...` 2.3 s;
+# `test_real_fetch_...` 0.14 s (sha256 of 197 MB); the module runs in ~19 s.
+# A later plan sizing its own real-file tests can budget from these numbers.
+
 from __future__ import annotations
 
 from pathlib import Path
