@@ -1,0 +1,334 @@
+# protocol/property-registry_v1.provenance.yaml
+#
+# One entry per leaf dotted path of protocol/property-registry_v1.yaml. The two files' leaf-path
+# sets are kept equal by tests/test_data_registry.py::test_provenance_leaf_paths_equal_registry_leaf_paths:
+# an entry here with no matching leaf in the instance, or a leaf there with no entry here, fails
+# the gate, so a value cannot be added or removed without its provenance moving with it.
+#
+# Leaf rule: every dotted path whose value is a scalar or a list is a leaf, except that the
+# `condition` mapping of an entry counts as ONE leaf (its path ends in `.condition`) because the
+# five pinned run conditions are one fact (F-30), not five.
+#
+# provenance_class is exactly one of:
+#   paper_or_source   -- the value is read from RadonPy source, arXiv:2511.11626, the PolyOmics
+#                        file or the live Hugging Face API; source names where, fact names the
+#                        .planning/phases/02-data-foundation/02-RESEARCH.md fact id (F-NN).
+#   protocol_decision -- the value is this project's own engineering choice; rationale explains
+#                        the choice and cites the facts it rests on; adr references the ADR
+#                        record when one exists.
+#   unresolved        -- the sources conflict or are silent and this project has not decided;
+#                        rationale states the conflict, target_phase names where it will be
+#                        pinned, pass_condition states what closes it.
+#
+# This file is never an input to any hash or to the loader (plan 02-04's llm4pol.data.registry
+# reads the instance and the schema only): correcting a citation or a rationale here must not
+# change a value.
+#
+# Every `physical_range` below is the validator's physical-range filter, not a D-16 threshold;
+# D-16 stays gated until the Phase 7 pre-registration (ADR-0005).
+
+entries:
+  schema_version:
+    provenance_class: protocol_decision
+    rationale: "The triad convention: instance + schema + provenance, with the instance carrying its own schema-version counter so the loader can refuse a file written for a later schema. v1 of the registry is never edited in place once a reported result cites it (A-5); a changed registry is protocol/property-registry_v2.yaml."
+
+  registry_version:
+    provenance_class: protocol_decision
+    rationale: "Charter §7 freezes the property registry at M1; registry_version v1 is that frozen version. It is never edited in place once a reported result cites it (A-5); a later registry is a new file, property-registry_v2.yaml, with its own provenance."
+
+  snapshot:
+    provenance_class: protocol_decision
+    rationale: "D-01 identifier form polyomics:general_polymers@<first 8 hex of the HF revision>; equals llm4pol.data.snapshot.SNAPSHOT_ID, and a test in plan 02-04 asserts the equality so the registry and the parquet metadata cannot name different snapshots."
+
+  revision:
+    provenance_class: paper_or_source
+    source: "HfApi.dataset_info('yhayashi1986/PolyOmics', repo_type='dataset'), live on 2026-09-22: sha 041e5834ea1a48682fae12dc39ccd723bcd4f771, last_modified 2026-09-03, licence cc-by-4.0, ungated"
+    fact: F-01
+
+  # --- thermal_conductivity -------------------------------------------------------------
+
+  properties.thermal_conductivity.column:
+    provenance_class: paper_or_source
+    source: "PolyOmics general_polymers header at revision 041e5834, column thermal_conductivity (81,405 non-null rows)"
+    fact: F-20
+
+  properties.thermal_conductivity.unit:
+    provenance_class: paper_or_source
+    source: "RadonPy radonpy/sim/preset/tc.py (make_lammps_input converts heat flux to SI; get_Tgrad_twoway divides the K/angstrom slope by length*1e-10 to K/m; TC = Qgrad/Tgrad); arXiv:2511.11626 Table S3 lists the TC_* decomposition columns in W m^-1 K^-1; data identity thermal_diffusivity = TC/(1000*density*Cp) holds to 1e-7"
+    fact: F-20
+
+  properties.thermal_conductivity.unit_status:
+    provenance_class: paper_or_source
+    source: "RadonPy source, arXiv:2511.11626 Table S3 and the thermal-diffusivity data identity agree (three independent confirmations)"
+    fact: F-20
+
+  properties.thermal_conductivity.condition:
+    provenance_class: paper_or_source
+    source: "arXiv:2511.11626 Methods (GAFF2, 300 K, 1 atm, RESP charges, ~1,000 atoms per chain x 10 chains, isotropic amorphous cell) and the columns temp, press, forcefield, charge of the pinned file (temp 300 and forcefield GAFF2_mod on every row)"
+    fact: F-30
+
+  properties.thermal_conductivity.role:
+    provenance_class: protocol_decision
+    rationale: "Charter §6 registry table: thermal_conductivity is the objective (the design target of charter §1, a thermally conductive electrical insulator)."
+
+  properties.thermal_conductivity.physical_range:
+    provenance_class: protocol_decision
+    rationale: "The validator's physical-range filter for thermal conductivity, an Assumptions Log A4 range: the observed span is min 0.038, p99 0.50, p99.9 1.23, max 43.4 W/(m*K) (F-67), and 108 of the 109 rows above 1 W/(m*K) are check_tc == False runs (F-59), so [0.0, 2.0] brackets every physically plausible amorphous-polymer value while reporting the failed-run tail. Affects only the physical-range count section of the report, not the 43,561 reproduction."
+
+  properties.thermal_conductivity.filters.check_tc:
+    provenance_class: protocol_decision
+    rationale: "F-59: check_tc is RadonPy's 'thermal conductivity checks passed' flag (R^2 >= 0.98 on both temperature-profile halves); 108 of the 109 rows with TC > 1 W/(m*K) are check_tc == False, and the README triple with check_tc == True is 42,733. The validator prints that filtered count beside the README's unfiltered 43,561. Whether the Phase 3 hidden table applies the filter is Open Question 2, an owner decision; recording it here loses nothing either way."
+
+  # --- dielectric_const_dc --------------------------------------------------------------
+
+  properties.dielectric_const_dc.column:
+    provenance_class: paper_or_source
+    source: "PolyOmics general_polymers header at revision 041e5834, column dielectric_const_dc (93,488 non-null rows); the registry serves this column only (A-7, ADR-0004)"
+    fact: F-21
+
+  properties.dielectric_const_dc.unit:
+    provenance_class: paper_or_source
+    source: "arXiv:2511.11626 Table S3 (dimensionless); data identity dielectric_const_dc = (uncorrected static permittivity) - 1 + refractive_index^2 on all 93,488 rows with residual below 1e-5 (F-14)"
+    fact: F-21
+
+  properties.dielectric_const_dc.unit_status:
+    provenance_class: paper_or_source
+    source: "arXiv:2511.11626 Table S3 and the F-14 data identity agree"
+    fact: F-21
+
+  properties.dielectric_const_dc.condition:
+    provenance_class: paper_or_source
+    source: "arXiv:2511.11626 Methods (GAFF2, 300 K, 1 atm, RESP charges, ~1,000 atoms per chain x 10 chains, isotropic amorphous cell) and the columns temp, press, forcefield, charge of the pinned file (temp 300 and forcefield GAFF2_mod on every row)"
+    fact: F-30
+
+  properties.dielectric_const_dc.role:
+    provenance_class: protocol_decision
+    rationale: "Charter §6 registry table: dielectric_const_dc is a constraint (the electrical-insulator half of the charter §1 target)."
+
+  properties.dielectric_const_dc.physical_range:
+    provenance_class: protocol_decision
+    rationale: "The validator's physical-range filter for the static dielectric constant. [1.0, 20.0] is exactly the README's 'physical dielectric_const_dc' filter: thermal_conductivity non-null AND dielectric_const_dc in [1, 20] AND tg in [100, 900] K reproduces the README's 43,561 (F-08). The observed span is 1.03 to 3,678 with 5,123 rows above 20 (F-67); since the minimum is 1.028 the lower bound removes nothing. Not a D-16 threshold: the constraint threshold of the design problem is deferred to the Phase 7 pre-registration (ADR-0005)."
+
+  # --- tg -------------------------------------------------------------------------------
+
+  properties.tg.column:
+    provenance_class: paper_or_source
+    source: "PolyOmics general_polymers header at revision 041e5834, column tg (56,064 non-null rows, each with tg_rmse)"
+    fact: F-22
+
+  properties.tg.unit:
+    provenance_class: paper_or_source
+    source: "RadonPy radonpy/sim/preset/tg.py (tg = (b2 - b1)/(a1 - a2), the intersection of two density-versus-temperature fits, temperature in K); arXiv:2511.11626 Table S3 'tg K'; data median 488.5 K"
+    fact: F-22
+
+  properties.tg.unit_status:
+    provenance_class: paper_or_source
+    source: "RadonPy source and arXiv:2511.11626 Table S3 agree; the data median 488.5 K is a plausible glass transition"
+    fact: F-22
+
+  properties.tg.condition:
+    provenance_class: paper_or_source
+    source: "arXiv:2511.11626 Methods (GAFF2, 300 K, 1 atm, RESP charges, ~1,000 atoms per chain x 10 chains, isotropic amorphous cell) and the columns temp, press, forcefield, charge of the pinned file (temp 300 and forcefield GAFF2_mod on every row)"
+    fact: F-30
+
+  properties.tg.role:
+    provenance_class: protocol_decision
+    rationale: "Charter §6 registry table: tg is a constraint (the table row reads 'tg, tg_rmse filter, 100-900 K')."
+
+  properties.tg.physical_range:
+    provenance_class: protocol_decision
+    rationale: "The validator's physical-range filter for the glass-transition temperature. [100.0, 900.0] K is exactly the README's Tg window: thermal_conductivity non-null AND dielectric_const_dc in [1, 20] AND tg in [100, 900] K reproduces the README's 43,561 (F-08), and charter §6 names the 100-900 K window in the registry table. The observed span reaches 1.08e6 K (F-67), the two-line fit's failure mode. Not a D-16 threshold: the constraint threshold of the design problem is deferred to the Phase 7 pre-registration (ADR-0005)."
+
+  properties.tg.filters.tg_rmse_ladder:
+    provenance_class: protocol_decision
+    rationale: "F-23: tg_rmse is the sum of squared density residuals of RadonPy's two-line fit (tg.py: rmse.append(np.sum(np.square(diff)))), in (g/cm^3)^2, not kelvin and not an RMSE despite the name. The rungs [0.05, 0.1, 0.2, 0.5, 1.0] are the ladder F-65 measured on the in-scope README triple (36,592 / 42,232 / 43,316 / 43,521 / 43,545 rows kept); the validator prints the count at each rung (DATA-09). No cut is applied in M1 (R-2): the ladder is recorded so the owner can pick a rung with the counts in view. Assumptions Log A3 recorded the rung 0.1 as a candidate default, not a decision."
+
+  properties.tg.filters.tg_rmse_unit:
+    provenance_class: paper_or_source
+    source: "RadonPy radonpy/sim/preset/tg.py: data['tg_rmse'] = rmse[rmse_arg] where rmse is np.sum(np.square(diff)) over density residuals in g/cm^3, hence (g/cm^3)^2; data median 0.029, p95 0.099, max 36.3"
+    fact: F-23
+
+  # --- rg -------------------------------------------------------------------------------
+
+  properties.rg.column:
+    provenance_class: paper_or_source
+    source: "PolyOmics general_polymers header at revision 041e5834, column Rg (95,335 non-null rows); the registry key is lower-case rg, the source column is capitalised"
+    fact: F-24
+
+  properties.rg.unit:
+    provenance_class: paper_or_source
+    source: "arXiv:2511.11626 Table S3 'Radius of gyration Rg - angstrom'; data: Rg/sqrt(Mn) = 0.228 in raw units (angstrom scale for a Mn ~ 7,500 chain), cubic cell edge 47.7 angstrom versus median Rg 19.9, and Scaled Rg = Rg/Mw^0.6 exactly as Table S3 defines it"
+    fact: F-24
+
+  properties.rg.unit_status:
+    provenance_class: paper_or_source
+    source: "arXiv:2511.11626 Table S3 and three data-scale checks agree; the fetched RadonPy Analyze branch shows no explicit rescale from mdtraj's nm, so the producing pipeline evidently rescaled (Assumptions Log A7, about the why only)"
+    fact: F-24
+
+  properties.rg.condition:
+    provenance_class: paper_or_source
+    source: "arXiv:2511.11626 Methods (GAFF2, 300 K, 1 atm, RESP charges, ~1,000 atoms per chain x 10 chains, isotropic amorphous cell) and the columns temp, press, forcefield, charge of the pinned file (temp 300 and forcefield GAFF2_mod on every row)"
+    fact: F-30
+
+  properties.rg.role:
+    provenance_class: protocol_decision
+    rationale: "Charter §6 registry table: rg is an intermediate variable (chain dimension), neither objective nor constraint."
+
+  properties.rg.physical_range:
+    provenance_class: protocol_decision
+    rationale: "The validator's physical-range filter for the radius of gyration, an Assumptions Log A4 range: the observed span is 9.5 to 124 angstrom (F-67) for chains of ~1,000 atoms, so [0.0, 200.0] admits every observed value and flags only a run whose cell or chain is not what F-30 describes. Affects only the physical-range count section of the report."
+
+  # --- r2 -------------------------------------------------------------------------------
+
+  properties.r2.column:
+    provenance_class: paper_or_source
+    source: "PolyOmics general_polymers header at revision 041e5834, column r2 (mean square end-to-end distance)"
+    fact: F-25
+
+  properties.r2.unit:
+    provenance_class: unresolved
+    rationale: "The paper and the data conflict. arXiv:2511.11626 Table S3 says 'Mean square end-to-end distance - angstrom^2', but r2/Rg^2 = 0.0558 in raw units, which is 5.58 if r2 is nm^2 and Rg angstrom (ideal chain: 6); in angstrom^2 the end-to-end distance would be 4.6 angstrom for a chain with Rg 20 angstrom, which is impossible. RadonPy computes r2 as mean(compute_contacts(...)**2) on an mdtraj trajectory whose internal unit is nm, so the file value is most likely nm^2 (Assumptions Log A2). The instance records nm^2 with unit_status unverified and a unit_note stating both candidates."
+    target_phase: "M8 or the first phase that makes r2 a design variable"
+    pass_condition: "a second source (RadonPy AutoMD export script or the PolyOmics community tab) states the stored unit"
+
+  properties.r2.unit_status:
+    provenance_class: paper_or_source
+    source: "conflict between arXiv:2511.11626 Table S3 (angstrom^2) and the data identity r2/Rg^2 = 5.58 with r2 in nm^2 and Rg in angstrom; unverified until a second source confirms"
+    fact: F-25
+
+  properties.r2.unit_note:
+    provenance_class: protocol_decision
+    rationale: "The note exists so the unit conflict is visible in the instance itself, not only in this provenance file: anyone reading the registry sees that r2 is stored as nm^2 by the data-consistency argument while Table S3 says angstrom^2, and that r2 is a validator variable only (no plan number depends on it). The schema requires unit_note whenever unit_status is unverified."
+
+  properties.r2.condition:
+    provenance_class: paper_or_source
+    source: "arXiv:2511.11626 Methods (GAFF2, 300 K, 1 atm, RESP charges, ~1,000 atoms per chain x 10 chains, isotropic amorphous cell) and the columns temp, press, forcefield, charge of the pinned file (temp 300 and forcefield GAFF2_mod on every row)"
+    fact: F-30
+
+  properties.r2.role:
+    provenance_class: protocol_decision
+    rationale: "Charter §6 registry table lists r2 among the intermediate / validator variables; it is a validator variable only, used for the ideal-chain consistency check against Rg and never as a design variable while its unit is unresolved."
+
+  properties.r2.physical_range:
+    provenance_class: protocol_decision
+    rationale: "The validator's physical-range filter for the mean square end-to-end distance, an Assumptions Log A4 range stated in the instance's unit nm^2: with Rg up to 124 angstrom (F-67) and r2/Rg^2 about 5.58 in these units, the largest plausible r2 is well under 1,000 nm^2, so [0.0, 2000.0] admits every observed value and flags only a broken trajectory. Affects only the physical-range count section of the report."
+
+  # --- ffv ------------------------------------------------------------------------------
+
+  properties.ffv.column:
+    provenance_class: paper_or_source
+    source: "PolyOmics general_polymers header at revision 041e5834, column fractional_free_volume (87,849 non-null rows); the registry key ffv is the charter's short name"
+    fact: F-26
+
+  properties.ffv.unit:
+    provenance_class: paper_or_source
+    source: "RadonPy radonpy/core/calc.py fractional_free_volume; arXiv:2511.11626 Table S3 'dimensionless'; data identity (cell_volume - 1.3*vdw_volume_bulk)/cell_volume holds exactly on all 87,849 rows"
+    fact: F-26
+
+  properties.ffv.unit_status:
+    provenance_class: paper_or_source
+    source: "RadonPy source, arXiv:2511.11626 Table S3 and the cell-volume data identity agree"
+    fact: F-26
+
+  properties.ffv.condition:
+    provenance_class: paper_or_source
+    source: "arXiv:2511.11626 Methods (GAFF2, 300 K, 1 atm, RESP charges, ~1,000 atoms per chain x 10 chains, isotropic amorphous cell) and the columns temp, press, forcefield, charge of the pinned file (temp 300 and forcefield GAFF2_mod on every row)"
+    fact: F-30
+
+  properties.ffv.role:
+    provenance_class: protocol_decision
+    rationale: "Charter §6 registry table: ffv is an intermediate variable (packing), neither objective nor constraint."
+
+  properties.ffv.physical_range:
+    provenance_class: protocol_decision
+    rationale: "The validator's physical-range filter for the fractional free volume, an Assumptions Log A4 range: a fraction of the cell volume lies in [0.0, 1.0] by definition, and the observed span is min -0.046 to max 0.71 (F-67), so the filter reports the negative-FFV rows (a 1.3*vdw_volume_bulk larger than the cell) as unphysical. Affects only the physical-range count section of the report."
+
+  # --- sp_ced ---------------------------------------------------------------------------
+
+  properties.sp_ced.column:
+    provenance_class: paper_or_source
+    source: "PolyOmics general_polymers header at revision 041e5834, column sp_ced (71,848 non-null rows)"
+    fact: F-27
+
+  properties.sp_ced.unit:
+    provenance_class: paper_or_source
+    source: "RadonPy radonpy/sim/preset/sp.py (CED = (etotal_intra - etotal_inter)/Vm with energies in J/mol and Vm in cm^3/mol, plot label 'Cohesive Energy Density [J cm^-3]'); 1 J/cm^3 = 1 MPa numerically; arXiv:2511.11626 Table S3 lists sp_total in MPa^0.5 and the data identity sp_total^2 = sp_ced holds to 2e-5 (not cal/cm^3, whose ratio would be 0.239)"
+    fact: F-27
+
+  properties.sp_ced.unit_status:
+    provenance_class: paper_or_source
+    source: "RadonPy source, arXiv:2511.11626 Table S3 and the sp_total^2 = sp_ced data identity agree"
+    fact: F-27
+
+  properties.sp_ced.condition:
+    provenance_class: paper_or_source
+    source: "arXiv:2511.11626 Methods (GAFF2, 300 K, 1 atm, RESP charges, ~1,000 atoms per chain x 10 chains, isotropic amorphous cell) and the columns temp, press, forcefield, charge of the pinned file (temp 300 and forcefield GAFF2_mod on every row)"
+    fact: F-30
+
+  properties.sp_ced.role:
+    provenance_class: protocol_decision
+    rationale: "Charter §6 registry table: sp_ced is an intermediate variable (cohesive energy density), neither objective nor constraint."
+
+  properties.sp_ced.physical_range:
+    provenance_class: protocol_decision
+    rationale: "The validator's physical-range filter for the cohesive energy density, an Assumptions Log A4 range: the observed span is 36.6 to 1,741 MPa (F-67), so [0.0, 2000.0] admits every observed value and flags only a negative or runaway energy. Affects only the physical-range count section of the report."
+
+  # --- density --------------------------------------------------------------------------
+
+  properties.density.column:
+    provenance_class: paper_or_source
+    source: "PolyOmics general_polymers header at revision 041e5834, column density (95,335 non-null rows)"
+    fact: F-28
+
+  properties.density.unit:
+    provenance_class: paper_or_source
+    source: "LAMMPS 'units real' thermo density (g/cm^3); arXiv:2511.11626 Table S3 'g cm^-3'; data identity density*cell_volume*1e-24*N_A/(n_mol*Mn) = 0.9998 with cell_volume in angstrom^3 (F-26)"
+    fact: F-28
+
+  properties.density.unit_status:
+    provenance_class: paper_or_source
+    source: "LAMMPS unit convention, arXiv:2511.11626 Table S3 and the cell-volume data identity agree"
+    fact: F-28
+
+  properties.density.condition:
+    provenance_class: paper_or_source
+    source: "arXiv:2511.11626 Methods (GAFF2, 300 K, 1 atm, RESP charges, ~1,000 atoms per chain x 10 chains, isotropic amorphous cell) and the columns temp, press, forcefield, charge of the pinned file (temp 300 and forcefield GAFF2_mod on every row)"
+    fact: F-30
+
+  properties.density.role:
+    provenance_class: protocol_decision
+    rationale: "Charter §6 registry table: density is an intermediate variable, neither objective nor constraint."
+
+  properties.density.physical_range:
+    provenance_class: protocol_decision
+    rationale: "The validator's physical-range filter for the amorphous density, an Assumptions Log A4 range: the observed span is 0.388 to 2.84 g/cm^3 (F-67); [0.5, 2.5] brackets real amorphous polymers (polyolefins near 0.85, fluoropolymers near 2.2) and reports both tails as unphysical. Affects only the physical-range count section of the report."
+
+  # --- refractive_index -----------------------------------------------------------------
+
+  properties.refractive_index.column:
+    provenance_class: paper_or_source
+    source: "PolyOmics general_polymers header at revision 041e5834, column refractive_index (93,488 non-null rows; the refractive_index_sos_* columns are the TD-DFT wavelength-dependent variants and are not registered)"
+    fact: F-29
+
+  properties.refractive_index.unit:
+    provenance_class: paper_or_source
+    source: "RadonPy radonpy/core/calc.py refractive_index (Lorentz-Lorenz from DFT polarizability, ri = sqrt((1 + 2*phi)/(1 - phi))); arXiv:2511.11626 Table S3 (dimensionless)"
+    fact: F-29
+
+  properties.refractive_index.unit_status:
+    provenance_class: paper_or_source
+    source: "RadonPy source and arXiv:2511.11626 Table S3 agree"
+    fact: F-29
+
+  properties.refractive_index.condition:
+    provenance_class: paper_or_source
+    source: "arXiv:2511.11626 Methods (GAFF2, 300 K, 1 atm, RESP charges, ~1,000 atoms per chain x 10 chains, isotropic amorphous cell) and the columns temp, press, forcefield, charge of the pinned file (temp 300 and forcefield GAFF2_mod on every row)"
+    fact: F-30
+
+  properties.refractive_index.role:
+    provenance_class: protocol_decision
+    rationale: "Charter §6 registry table lists refractive_index among the intermediate / validator variables; it is a validator variable, used for the Maxwell-relation check (permittivity at least the square of the refractive index, ADR-0004) and the F-14 identity."
+
+  properties.refractive_index.physical_range:
+    provenance_class: protocol_decision
+    rationale: "The validator's physical-range filter for the refractive index, an Assumptions Log A4 range: the observed span is 0.81 to 3.07 with 1 row below 1 and 34 above 2 (F-67); a refractive index below 1.0 is unphysical for a dense polymer and [1.0, 3.0] reports that row and the far tail. Affects only the physical-range count section of the report."

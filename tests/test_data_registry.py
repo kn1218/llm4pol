@@ -9,7 +9,7 @@ structural rule: the schema's ``propertyNames`` enum admits exactly nine keys, s
 the uncorrected static permittivity column cannot be registered.
 
 Only ``json``, ``yaml``, ``jsonschema`` and ``pathlib`` are imported: this module
-does not depend on the ``llm4pol`` package (plan 02-04 adds the loader tests).
+does not depend on the source package (plan 02-04 adds the loader tests that do).
 """
 
 from __future__ import annotations
