@@ -3,18 +3,18 @@ gsd_state_version: "1.0"
 milestone: v1.0
 current_phase: 2
 current_phase_name: Data Foundation
-current_plan: Not started
+current_plan: 2
 status: executing
-stopped_at: Phase 1 complete, ready to plan Phase 02
-last_updated: "2026-09-21T18:25:05.852Z"
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-09-21T18:44:49.693Z"
 last_activity: 2026-09-22
 last_activity_desc: Phase 1 complete, transitioned to Phase 02
-state_head: 2f7c81d1f1d24b35507d2ca55eb9f49e004bc25b
+state_head: 5c04f3d13fd7908811da1b459a7078b3148da9bb
 progress:
   total_phases: 8
-  completed_phases: 1
+  completed_phases: 0
   total_plans: 6
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -29,10 +29,10 @@ Charter: docs/MASTER-PLAN.md v1.0 (approved 2026-09-21, ADR-0005) — highest so
 
 ## Current Position
 
-Phase: 2 (Data Foundation) — READY TO EXECUTE
-Current Plan: Not started
+Phase: 2 (Data Foundation) — EXECUTING
+Current Plan: 2
 Total Plans in Phase: 5
-Status: Ready to execute
+Status: Executing (plan 01 of 5 complete)
 Last activity: 2026-09-22 — Phase 1 complete, transitioned to Phase 02
 
 Progress: [░░░░░░░░░░] 0%
@@ -62,6 +62,7 @@ Progress: [░░░░░░░░░░] 0%
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 01 P01 | 12 min | 3 tasks | 9 files |
+| Phase 02 P01 | 15 min | 2 tasks | 21 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,9 @@ Recent decisions affecting current work:
 - [Phase 01]: Ten history-scan pattern classes (D-01 mandatory seven plus AWS, Slack, PEM), generic assignment accepts unquoted dotenv-style values and rejects dotted or digit-free ones — Self-test pins all ten; zero hits on this history; config-key constants in vendored files must not false-positive
 - [Phase 01]: scan_history refuses a shallow clone (exit 2) and CI checks out fetch-depth 0 — A depth-1 checkout would scan one commit and pass vacuously
 - [Phase 01]: Plan 01-01 commits made on main (sequential executor, branching_strategy none); CI verified by workflow_dispatch run 35627403598 — Orchestrator instruction and D-05; push events create no runs on this repo
+- [Phase 02]: fetch resolves its downloader at call time (None -> module hf_hub_download) and catches (OSError, EntryNotFoundError); the on-disk sha256 is the only verification (Q5)
+- [Phase 02]: Validator reads second_monomer_rows / parse_failures from the rows parquet metadata with a source_rows - second - parse == in_scope_rows cross-check (exit 2 on inconsistency); unique_candidate_ids from the candidate parquet (D-7)
+- [Phase 02]: Plan 02-01 RED evidence is a collection error by the plan's design (type: execute, tdd_mode false); check tdd-red-evidence would say INVALID_RED - recorded in SUMMARY
 
 ### Pending Todos
 
@@ -99,6 +103,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-21T16:48:30.952Z
-Stopped at: Phase 1 complete, ready to plan Phase 02
+Last session: 2026-09-21T18:44:36.877Z
+Stopped at: Completed 02-01-PLAN.md
 Resume file: None
