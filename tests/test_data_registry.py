@@ -8,8 +8,10 @@ research facts (F-20..F-31, F-45, F-47, F-59, F-65..F-67) and make A-7 a
 structural rule: the schema's ``propertyNames`` enum admits exactly nine keys, so
 the uncorrected static permittivity column cannot be registered.
 
-Only ``json``, ``yaml``, ``jsonschema`` and ``pathlib`` are imported: this module
-does not depend on the source package (plan 02-04 adds the loader tests that do).
+The triad tests import only ``json``, ``yaml``, ``jsonschema`` and ``pathlib``;
+the loader tests at the end (plan 02-04, D-05) import ``llm4pol.data.registry``
+and pin its typed view of the same instance against ``schema.PROPERTY_COLUMNS``
+and ``snapshot.SNAPSHOT_ID``.
 """
 
 from __future__ import annotations
@@ -23,6 +25,8 @@ from typing import Any
 import jsonschema
 import pytest
 import yaml
+
+from llm4pol.data import registry, schema, snapshot
 
 ROOT = Path(__file__).resolve().parent.parent
 REGISTRY = ROOT / "protocol" / "property-registry_v1.yaml"
@@ -325,3 +329,53 @@ def test_provenance_never_calls_a_range_a_decision() -> None:
             assert "physical-range filter" in rationale, (
                 f"{path}: rationale must call the range a physical-range filter (ADR-0005)"
             )
+
+
+# --- Plan 02-04 Task 1: the typed loader (D-05, DATA-03) ---------------------------------
+
+
+def test_load_registry_returns_typed_specs_for_nine_keys() -> None:
+    reg = registry.load_registry()
+    assert list(reg.properties) == NINE_KEYS
+    tg = reg.properties["tg"]
+    assert tg.physical_range == (100.0, 900.0)
+    assert tg.tg_rmse_ladder == (0.05, 0.1, 0.2, 0.5, 1.0)
+    assert tg.tg_rmse_unit == "(g/cm^3)^2"
+    assert reg.properties["thermal_conductivity"].check_tc is True
+    assert reg.properties["dielectric_const_dc"].check_tc is None
+    r2 = reg.properties["r2"]
+    assert r2.unit_status == "unverified"
+    assert r2.unit_note
+    assert reg.properties["ffv"].column == "fractional_free_volume"
+
+
+def test_registry_snapshot_equals_snapshot_id_constant() -> None:
+    reg = registry.load_registry()
+    assert reg.snapshot == snapshot.SNAPSHOT_ID
+    assert reg.revision == snapshot.POLYOMICS_REVISION
+
+
+def test_registry_columns_equal_loader_property_columns() -> None:
+    reg = registry.load_registry()
+    assert reg.columns() == schema.PROPERTY_COLUMNS
+    assert reg.spec_for_column("Rg").key == "rg"
+    with pytest.raises(registry.RegistryError):
+        reg.spec_for_column("no_such_column")
+
+
+def test_load_registry_rejects_an_instance_with_the_barred_key(tmp_path: Path) -> None:
+    barred = "static_" + "dielectric_const"
+    injected = _load_yaml(REGISTRY)
+    entry = copy.deepcopy(injected["properties"]["dielectric_const_dc"])
+    entry["column"] = barred
+    injected["properties"][barred] = entry
+    path = tmp_path / "property-registry_v1.yaml"
+    path.write_text(yaml.safe_dump(injected, sort_keys=False), encoding="utf-8")
+    with pytest.raises(registry.RegistryError):
+        registry.load_registry(path)
+
+
+def test_load_registry_rejects_a_missing_file(tmp_path: Path) -> None:
+    absent = tmp_path / "absent.yaml"
+    with pytest.raises(registry.RegistryError, match=re.escape(str(absent))):
+        registry.load_registry(absent)
