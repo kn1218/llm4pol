@@ -149,19 +149,74 @@ def write_manifest(root: Path, files: list[Path]) -> Path:
     return manifest
 
 
+def make_synthetic_root(root: Path) -> Path:
+    """Populate ``root`` as a fake repository: synthetic CSV, README, manifest, output dirs.
+
+    Module-level (not a fixture) so the one-off example generator of plan
+    03-01 and the fixtures below share one definition of the fake root.
+    """
+    raw = snapshot.raw_dir(root)
+    raw.mkdir(parents=True)
+    csv = snapshot.csv_path(root)
+    pd.DataFrame(SYNTHETIC_ROWS).to_csv(csv, index=False)
+    readme = snapshot.readme_path(root)
+    readme.write_text(SYNTHETIC_README, encoding="utf-8")
+    write_manifest(root, [csv, readme])
+    snapshot.processed_dir(root).mkdir(parents=True)
+    (root / "docs" / "audit").mkdir(parents=True)
+    return root
+
+
 @pytest.fixture
 def synthetic_root(tmp_path: Path) -> Path:
     """A fake repository root holding the 14-row synthetic CSV, README and manifest."""
-    raw = snapshot.raw_dir(tmp_path)
-    raw.mkdir(parents=True)
-    csv = snapshot.csv_path(tmp_path)
-    pd.DataFrame(SYNTHETIC_ROWS).to_csv(csv, index=False)
-    readme = snapshot.readme_path(tmp_path)
-    readme.write_text(SYNTHETIC_README, encoding="utf-8")
-    write_manifest(tmp_path, [csv, readme])
-    snapshot.processed_dir(tmp_path).mkdir(parents=True)
-    (tmp_path / "docs" / "audit").mkdir(parents=True)
-    return tmp_path
+    return make_synthetic_root(tmp_path)
+
+
+# --------------------------------------------------------------------------
+# Synthetic candidate table (Phase 3, CONTEXT D-08; RESEARCH F-39, F-40).
+# `load.load` on the synthetic root yields 9 candidates in the writer's exact
+# 49-column shape with the `llm4pol.snapshot` metadata. Status cases the
+# evaluator tests cite (every value invented, none a PolyOmics row):
+#   7ec8cb49ff317efc  `*CC*`/none            TC median 0.32, n 3, std 0.02 -> ok, spread
+#   b3a635a55e1a6645  `*CC(*)c1ccccc1`/atactic  n 2 -> ok, spread 0.007071
+#   81b997b85ccd2069  `*CO*`/none            TC NaN, n 0 -> missing/value_absent
+#   d24805b4ce4c381c  `*CC(*)F`/none         tg NaN, n 0 -> missing; TC n 1 -> ok, spread null
+#   182075ab56be81bf  TC 15.0, tg 1.0e6, check_tc False -> still ok (D-03, no filter)
+#   0123456789abcdef  well-formed, absent   -> missing/candidate_unknown
+#   melting_point     unregistered key      -> unsupported
+# --------------------------------------------------------------------------
+
+UNKNOWN_CANDIDATE_ID = "0123456789abcdef"
+
+# The example request shared by the CLI tracer test, the contract tests and the
+# committed `protocol/examples/eval-request.example.json` (plan 03-01 STEP 5).
+SYNTHETIC_EXAMPLE_REQUEST: dict[str, object] = {
+    "run_id": "example-run",
+    "iteration": 0,
+    "batch": [
+        {
+            "candidate_id": "7ec8cb49ff317efc",
+            "properties": ["thermal_conductivity", "dielectric_const_dc", "tg"],
+        },
+        {"candidate_id": "81b997b85ccd2069", "properties": ["thermal_conductivity"]},
+        {"candidate_id": "d24805b4ce4c381c", "properties": ["tg", "thermal_conductivity"]},
+        {"candidate_id": UNKNOWN_CANDIDATE_ID, "properties": ["thermal_conductivity"]},
+        {
+            "candidate_id": "b3a635a55e1a6645",
+            "properties": ["melting_point", "thermal_conductivity"],
+        },
+    ],
+}
+
+
+@pytest.fixture
+def synthetic_candidates(synthetic_root: Path) -> Path:
+    """``synthetic_root`` after ``load.load``: 9 candidates in ``data/processed/`` (F-39)."""
+    from llm4pol.data import load
+
+    load.load(synthetic_root)
+    return synthetic_root
 
 
 # --------------------------------------------------------------------------
@@ -176,6 +231,22 @@ def real_csv() -> Path:
         pytest.skip(
             f"pinned PolyOmics file absent at {path} "
             "(never committed; run python -m llm4pol.data fetch)"
+        )
+    return path
+
+
+@pytest.fixture(scope="session")
+def real_candidates() -> Path:
+    """The processed candidate parquet of this checkout, read-only (F-41).
+
+    Never runs ``load`` (16-19 s): the evaluator's real-file tests only read
+    the table, so they skip when it has not been produced on this machine.
+    """
+    path = snapshot.candidates_parquet(snapshot.processed_dir(REPO_ROOT))
+    if not path.is_file():
+        pytest.skip(
+            f"processed candidate parquet absent at {path} "
+            "(never committed; run python -m llm4pol.data fetch, then load)"
         )
     return path
 

@@ -23,6 +23,14 @@ src = ["src", "scripts", "tests"]
 # environment are not this project's source.
 extend-exclude = [".claude", ".planning", ".gsd", ".omc", "docs", "env", "data"]
 
+[tool.ruff.lint.isort]
+# `llm4pol` is first-party by declaration, not by discovery: isort's default
+# classification looks the dotted module path up on disk, so a test that
+# imports a submodule before its GREEN commit creates it (the TDD RED state)
+# would be sorted as third-party and re-sorted after GREEN (plan 02-01 hit
+# this; plan 03-01 pins it here).
+known-first-party = ["llm4pol"]
+
 [tool.mypy]
 python_version = "3.13"
 packages = ["llm4pol"]
