@@ -282,3 +282,20 @@ def test_real_tg_window_ladder_and_feasible_set(real_load: load.LoadResult, tmp_
         )
     assert "input to the D-16 gate" in text
     assert "Wording discrepancy raised for the owner: REQUIREMENTS.md DATA-09" in text
+
+
+# --------------------------------------------------------------------------
+# Plan 02-05: the committed report is byte-identical to a fresh run (T-02-23)
+# --------------------------------------------------------------------------
+
+
+def test_real_validate_exits_0_and_committed_report_is_byte_identical_to_a_fresh_run(
+    real_load: load.LoadResult, tmp_path: Path
+) -> None:
+    report_path = tmp_path / "report.md"
+    assert (
+        validate.run(REPO_ROOT, processed_dir=real_load.processed_dir, report_path=report_path) == 0
+    )
+    committed = snapshot.report_path(REPO_ROOT)
+    assert committed.is_file(), committed
+    assert report_path.read_bytes() == committed.read_bytes()

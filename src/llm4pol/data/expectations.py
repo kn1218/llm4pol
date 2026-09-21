@@ -33,33 +33,22 @@ CANDIDATE_TRIPLE_ALT = "candidate-level README triple (median then filter)"
 TC_TG_ROWS = "rows with thermal_conductivity and tg in range (all source rows)"
 TG_RMSE_ROWS = "rows with tg_rmse (all source rows)"
 
-_F52_NOTE = "F-52 counted on (smiles_list, tacticity) groups; here by candidate_id (F-35 merges)"
+_F52_NOTE = "F-52 counted on (smiles_list, tacticity) groups; here by candidate_id (F-35)"
 _NOISE_NOTE = "F-55: median over candidates with n >= 2 of std / |median|"
 _TRIPLE_NOTE = "F-56: rows filtered to the README triple first, then grouped (F-61)"
-_MAXWELL_NOTE = (
-    "F-13: README states 88.9 %; 38,693 / 43,561 = 88.8249 %, which rounds to 88.82 (F-13 "
-    "prints 88.83, a rounding slip of the same fraction); the observed share is pinned"
-)
-_IDENTITY_NOTE = (
-    "F-14: eps_dc = static - 1 + n^2 is an identity (arXiv:2511.11626 Table S3), so the 0 "
-    "violations of dielectric_const_dc are algebra, not a check"
-)
+# F-13 prints 88.83 % for its own fraction 38,693 / 43,561 = 88.8249 %, which rounds
+# to 88.82; the observed share is pinned (R-5) and the README's 88.9 % is the difference.
+_MAXWELL_NOTE = "F-13: README 88.9 %; 38,693/43,561 = 88.8249 % -> 88.82 (F-13 printed 88.83)"
+# arXiv:2511.11626 Table S3 defines the corrected static dielectric constant.
+_IDENTITY_NOTE = "F-14: eps_dc = static - 1 + n^2 is an identity (Table S3); the 0 is algebra"
 _STATIC_N2_NOTE = "F-17: README states -0.05; not reproduced on any population"
-_CANONICAL_TWINS_NOTE = (
-    "F-39 counted by smiles_list; by canonical_psmiles the F-35 merges may move a group"
-)
-_CARD_NOTE = "F-19: the dataset card's description text; the Table S2 origin is an assumption (A1)"
+_CANONICAL_TWINS_NOTE = "F-39 counts by smiles_list; F-35 merges may move a group by canonical"
+_CARD_NOTE = "F-19: the card's description text; the Table S2 origin is an assumption (A1)"
 CARD_NOT_REPRODUCIBLE = "not reproducible from any column"
 _TG_RMSE_NOTE = "F-23: tg_rmse is a sum of squared density residuals in (g/cm^3)^2, not kelvin"
 _Q25_NOTE = "F-60: Q25 of dielectric_const_dc, pandas linear interpolation"
-_FEASIBLE_NOTE = (
-    "F-62: development defaults (charter section 13, D-16 row); an input to the D-16 gate, "
-    "not a decision (ADR-0005)"
-)
-_FEASIBLE_ROWS_NOTE = (
-    "F-62: row-level count under the row-level Q25 (2.6427); the count under the candidate "
-    "Q25 is printed beside it"
-)
+_FEASIBLE_NOTE = "F-62: charter section 13 development defaults; input to the D-16 gate (ADR-0005)"
+_FEASIBLE_ROWS_NOTE = "F-62: rows under the row-level Q25 (2.6427); the candidate-Q25 count is printed"
 _ORDER_NOTE = "F-61: median then filter is the alternative order, printed and not used"
 
 # Finding ids -> (class, value, tolerance, note, digits). Plan 02-01: F-06, F-07,

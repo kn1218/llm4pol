@@ -586,3 +586,40 @@ def test_synthetic_report_has_every_section_in_order(synthetic_root: Path, tmp_p
     assert headings == list(REPORT_HEADINGS)
     offending = [line for line in text.splitlines() if SMILES_LIKE.search(line)]
     assert not offending, offending
+
+
+# --- Plan 02-05: the committed number authority (D-07, charter section 10, T-02-24) ------
+
+BARE_16_HEX = re.compile(r"(^|[^0-9a-f])[0-9a-f]{16}([^0-9a-f]|$)")
+UUID_SHAPE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}")
+MAX_CELL_CHARACTERS = 80
+
+
+def test_committed_validator_report_exists_and_names_revision_and_sections() -> None:
+    """The committed report is the number authority: complete, green and aggregates only."""
+    committed = snapshot.report_path(REPO_ROOT)
+    assert committed.is_file(), committed
+    text = committed.read_text(encoding="utf-8")
+    assert "041e5834ea1a48682fae12dc39ccd723bcd4f771" in text
+    assert "polyomics:general_polymers@041e5834" in text
+    headings = [line for line in text.splitlines() if line.startswith("## ")]
+    assert headings == list(REPORT_HEADINGS)
+
+    findings_header = ["finding", "population", "expected", "observed", "class", "status"]
+    findings = [rows for header, rows in _markdown_tables(text) if header == findings_header]
+    assert len(findings) == 1
+    assert findings[0], "the findings table is empty"
+    assert {row[5] for row in findings[0]} <= {"reproduced", "documented"}, findings[0]
+
+    lines = text.splitlines()
+    assert not [line for line in lines if SMILES_LIKE.search(line)]
+    assert not [line for line in lines if BARE_16_HEX.search(line)]
+    assert not [line for line in lines if UUID_SHAPE.search(line)]
+    long_cells = [
+        cell
+        for _, rows in _markdown_tables(text)
+        for row in rows
+        for cell in row
+        if len(cell) > MAX_CELL_CHARACTERS
+    ]
+    assert not long_cells, long_cells
