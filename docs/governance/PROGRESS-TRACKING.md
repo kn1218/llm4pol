@@ -25,6 +25,6 @@ functions, unimplemented branches, or a passing gate on code that nothing calls.
 | Problem definition | **Decided** (ADR-0004): thermally conductive electrical insulator on PolyOmics |
 | PROJECT FOUNDATION PROPOSAL | Approved 2026-09-21, promoted to the charter (ADR-0005) |
 | Charter, `MASTER-PLAN.md` | **Approved v1.0.** D-16/D-17/D-18 gated at M6/M8/M9 |
-| M0 reproducible base | In progress: first commit, `huggingface_hub` in the environment |
-| GSD initialisation | Next, with the charter as input; drift review follows |
+| M0 reproducible base (Phase 1) | In progress: first commit made, `huggingface_hub` locked, `.gitattributes` LF. **Open:** FOUND-01 needs a GitHub remote for the two-platform CI run |
+| GSD initialisation | Done 2026-09-21: `.planning/{PROJECT,REQUIREMENTS,ROADMAP,STATE}.md`, 8 phases = M0..M7, 41/41 requirements mapped; drift review against charter §13 passed |
 | Production code | None yet; permitted under the approved charter, built in the §13 order |
