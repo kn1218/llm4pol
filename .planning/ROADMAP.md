@@ -81,13 +81,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Invariants D-7..D-10 and A-7 run as tests inside the check gate, added in the same change as the loader (charter §13 M1 (6))
 
 **Freezes**: candidate definition (`candidate_id = sha256(canonical_psmiles + "|" + tacticity)[:16]`), property registry (`protocol/schemas/property-registry.json`), snapshot identifier `polyomics:general_polymers@<hf_revision>` (charter §7, §13 M1)
-**Plans**: 1/5 plans executed
+**Plans**: 2/5 plans executed
 
 Plans:
 **Wave 1**
 
 - [x] 02-01-PLAN.md — Tracer: environment + import contract, MANIFEST-open, fetch → load → identity → parquet → first validator sections through `python -m llm4pol.data` (wave 1)
-- [ ] 02-02-PLAN.md — Property registry triad: schema with A-7 by construction, instance with unit status, provenance (wave 1)
+- [x] 02-02-PLAN.md — Property registry triad: schema with A-7 by construction, instance with unit status, provenance (wave 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -214,7 +214,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 (ch
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 1/1 | Complete    | 2026-09-22 |
-| 2. Data Foundation | 1/5 | In Progress|  |
+| 2. Data Foundation | 2/5 | In Progress|  |
 | 3. Evaluator (table backend) | 0/? | Not started | - |
 | 4. Run Management | 0/? | Not started | - |
 | 5. Deterministic End-to-End | 0/? | Not started | - |
