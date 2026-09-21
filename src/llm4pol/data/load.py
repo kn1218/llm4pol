@@ -44,11 +44,11 @@ class LoadResult:
 def read_source(csv_path: Path) -> Any:
     """``pd.read_csv`` with the declared dtype map; fails fast on a missing file or column."""
     if not csv_path.is_file():
-        raise LoaderError(f"source CSV not found: {csv_path}")
+        raise LoaderError(f"missing source file: {csv_path}")
     frame = pd.read_csv(csv_path, low_memory=False, dtype=DTYPES)
-    missing = [name for name in REQUIRED_SOURCE_COLUMNS if name not in frame.columns]
+    missing = sorted(name for name in REQUIRED_SOURCE_COLUMNS if name not in frame.columns)
     if missing:
-        raise LoaderError(f"{csv_path}: missing required columns: {missing}")
+        raise LoaderError(f"{csv_path}: missing required columns: {', '.join(missing)}")
     return frame
 
 
@@ -95,7 +95,8 @@ def build_candidates(rows: Any) -> Any:
     """One row per ``candidate_id`` (D-7): median / n / min / max / std per registry property.
 
     Grouping happens here, before any metric is computed anywhere else.
-    ``std`` is pandas' default ddof=1 (NaN for a singleton).
+    ``<column>_n`` is the non-null count (0 when the candidate's rows lack the
+    property); ``std`` is pandas' default ddof=1 (NaN when ``n`` is 1).
     """
     grouped = rows.groupby("candidate_id", sort=True)
     table = grouped[list(PROPERTY_COLUMNS)].agg(["median", "count", "min", "max", "std"])

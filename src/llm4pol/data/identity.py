@@ -31,11 +31,19 @@ def normalise_tacticity(value: object) -> str:
 
 
 def canonical_psmiles(smiles: str) -> str | None:
-    """RDKit canonical, isomeric SMILES of ``smiles``; ``None`` when it does not parse."""
+    """RDKit canonical, isomeric SMILES of ``smiles``; ``None`` when it does not parse.
+
+    The empty string is not a repeat unit (RDKit parses it as an empty
+    molecule); a comma-joined list such as the cellulose rows' ``smiles_list``
+    (F-32) fails to parse and is ``None`` like any other bad input.
+    """
+    if not smiles:
+        return None
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         return None
-    return Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True)
+    canonical = Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True)
+    return canonical or None
 
 
 def candidate_id(canonical: str, tacticity: object) -> str:
