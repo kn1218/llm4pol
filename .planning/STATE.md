@@ -3,18 +3,18 @@ gsd_state_version: "1.0"
 milestone: v1.0
 current_phase: 2
 current_phase_name: Data Foundation
-current_plan: 3
+current_plan: 4
 status: executing
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-09-21T18:55:51.291Z"
+stopped_at: Completed 02-03-PLAN.md
+last_updated: "2026-09-21T19:09:24.880Z"
 last_activity: 2026-09-22
 last_activity_desc: Phase 1 complete, transitioned to Phase 02
-state_head: f5b4078047669274b74a79e41d25d6a9aee032b4
+state_head: ba59947f5c9e1ee84310e7f74e5766e2f62c4b55
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 6
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Charter: docs/MASTER-PLAN.md v1.0 (approved 2026-09-21, ADR-0005) — highest so
 ## Current Position
 
 Phase: 2 (Data Foundation) — EXECUTING
-Current Plan: 3
+Current Plan: 4
 Total Plans in Phase: 5
 Status: Executing (plan 01 of 5 complete)
 Last activity: 2026-09-22 — Phase 1 complete, transitioned to Phase 02
@@ -64,6 +64,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01 P01 | 12 min | 3 tasks | 9 files |
 | Phase 02 P01 | 15 min | 2 tasks | 21 files |
 | Phase 02 P02 | 7 min | 2 tasks | 4 files |
+| Phase 02 P03 | 10min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,8 @@ Recent decisions affecting current work:
 - [Phase 02]: fetch resolves its downloader at call time (None -> module hf_hub_download) and catches (OSError, EntryNotFoundError); the on-disk sha256 is the only verification (Q5)
 - [Phase 02]: Validator reads second_monomer_rows / parse_failures from the rows parquet metadata with a source_rows - second - parse == in_scope_rows cross-check (exit 2 on inconsistency); unique_candidate_ids from the candidate parquet (D-7)
 - [Phase 02]: Plan 02-01 RED evidence is a collection error by the plan's design (type: execute, tdd_mode false); check tdd-red-evidence would say INVALID_RED - recorded in SUMMARY
+- [Phase 2]: 02-03: a present-but-mismatched pinned file is reported (MISMATCH, exit 1), never re-downloaded; the downloader is called only for absent files
+- [Phase 2]: 02-03: canonical_psmiles('') returns None by guard (RDKit parses the empty string as an empty molecule)
 
 ### Pending Todos
 
@@ -104,6 +107,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-21T18:55:51.258Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-09-21T19:09:24.853Z
+Stopped at: Completed 02-03-PLAN.md
 Resume file: None

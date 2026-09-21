@@ -81,7 +81,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Invariants D-7..D-10 and A-7 run as tests inside the check gate, added in the same change as the loader (charter §13 M1 (6))
 
 **Freezes**: candidate definition (`candidate_id = sha256(canonical_psmiles + "|" + tacticity)[:16]`), property registry (`protocol/schemas/property-registry.json`), snapshot identifier `polyomics:general_polymers@<hf_revision>` (charter §7, §13 M1)
-**Plans**: 2/5 plans executed
+**Plans**: 3/5 plans executed
 
 Plans:
 **Wave 1**
@@ -91,7 +91,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 02-03-PLAN.md — Fetch contract, identity vectors, declared schema and loader rules; real-file identity counts (wave 2)
+- [x] 02-03-PLAN.md — Fetch contract, identity vectors, declared schema and loader rules; real-file identity counts (wave 2)
 - [ ] 02-04-PLAN.md — Registry loader, `schema-inventory` check step, replicate structure and noise floor; D-7, D-9 promoted (wave 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
@@ -214,7 +214,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 (ch
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 1/1 | Complete    | 2026-09-22 |
-| 2. Data Foundation | 2/5 | In Progress|  |
+| 2. Data Foundation | 3/5 | In Progress|  |
 | 3. Evaluator (table backend) | 0/? | Not started | - |
 | 4. Run Management | 0/? | Not started | - |
 | 5. Deterministic End-to-End | 0/? | Not started | - |

@@ -16,10 +16,10 @@ subordinate to the charter (ADR-0002).
 
 ### Data foundation (charter §13 M1, §6, §10)
 
-- [ ] **DATA-01**: `llm4pol.data.fetch` acquires PolyOmics `general_polymers` at a pinned Hugging Face revision and verifies each file's sha256 and size against `data/MANIFEST-open.sha256`
-- [ ] **DATA-02**: `llm4pol.data.load` produces one parquet snapshot `data/processed/polyomics-<rev>.parquet` with a declared pyarrow schema and the snapshot identifier `polyomics:general_polymers@<rev>`
+- [x] **DATA-01**: `llm4pol.data.fetch` acquires PolyOmics `general_polymers` at a pinned Hugging Face revision and verifies each file's sha256 and size against `data/MANIFEST-open.sha256`
+- [x] **DATA-02**: `llm4pol.data.load` produces one parquet snapshot `data/processed/polyomics-<rev>.parquet` with a declared pyarrow schema and the snapshot identifier `polyomics:general_polymers@<rev>`
 - [ ] **DATA-03**: The property registry (`protocol/schemas/property-registry.json`) declares key, column, unit and condition for `thermal_conductivity`, `dielectric_const_dc`, `tg`, `rg`, `r2`, `ffv`, `sp_ced`, `density`, `refractive_index`; `static_dielectric_const` is absent (A-7)
-- [ ] **DATA-04**: `llm4pol.data.identity` computes `candidate_id = sha256(canonical_psmiles + "|" + tacticity)[:16]` with a stereo-aware canonical repeat-unit SMILES (D-6)
+- [x] **DATA-04**: `llm4pol.data.identity` computes `candidate_id = sha256(canonical_psmiles + "|" + tacticity)[:16]` with a stereo-aware canonical repeat-unit SMILES (D-6)
 - [ ] **DATA-05**: Rows sharing a `candidate_id` are grouped as replicates; the candidate value is the replicate median with count and spread preserved (D-7, D-9, D-10)
 - [ ] **DATA-06**: `llm4pol.data.validate` emits a validator report (`docs/audit/polyomics-<rev>-validation.md`) that reproduces or documents the difference for: row count, unique repeat units, filtered triple count 43,561, `static_dielectric_const` Maxwell violation 88.9 %, `dielectric_const_dc` violation 0, and resolves 95,335 vs 73,045
 - [ ] **DATA-07**: The validator report records the replicate structure and the replicate noise floor of `thermal_conductivity`, `dielectric_const_dc` and `tg`
@@ -110,10 +110,10 @@ Which phases cover which requirements. Phase N is charter milestone M(N-1); see 
 | FOUND-01 | Phase 1 (Foundation) | Complete |
 | FOUND-02 | Phase 1 (Foundation) | Complete |
 | FOUND-03 | Phase 1 (Foundation) | Complete |
-| DATA-01 | Phase 2 (Data Foundation) | Pending |
-| DATA-02 | Phase 2 (Data Foundation) | Pending |
+| DATA-01 | Phase 2 (Data Foundation) | Complete |
+| DATA-02 | Phase 2 (Data Foundation) | Complete |
 | DATA-03 | Phase 2 (Data Foundation) | Pending |
-| DATA-04 | Phase 2 (Data Foundation) | Pending |
+| DATA-04 | Phase 2 (Data Foundation) | Complete |
 | DATA-05 | Phase 2 (Data Foundation) | Pending |
 | DATA-06 | Phase 2 (Data Foundation) | Pending |
 | DATA-07 | Phase 2 (Data Foundation) | Pending |
