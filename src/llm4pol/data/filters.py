@@ -313,3 +313,88 @@ def readme_window(df: Any, mask: Any, registry: Registry) -> tuple[int, float]:
     )
     count = int(window.sum())
     return count, round(100.0 * count / len(rows), 2) if len(rows) else 0.0
+
+
+# Development defaults from the charter section 13 gate-parameter table (D-16
+# row): constrained single objective, eps_dc <= Q25 of the candidate medians,
+# Tg >= 400 K. They are inputs to the D-16 gate, which is fixed at the Phase 7
+# pre-registration (ADR-0005); they are cited here and decided nowhere in this
+# package.
+DEV_DEFAULT_TG_MIN_K = 400.0
+DEV_DEFAULT_EPS_QUANTILE = 0.25
+
+TG_RMSE_COLUMN = "tg_rmse"
+# The tail quantiles printed beside the median of tg_rmse (F-23).
+TG_RMSE_P95 = 0.95
+TG_RMSE_P99 = 0.99
+
+
+def tg_window_counts(source_rows: Any, registry: Registry) -> tuple[int, int, int]:
+    """``(non-null, inside, outside)`` of ``tg`` against its physical range (F-64)."""
+    inside, outside, missing = physical_range_counts(source_rows, registry)[
+        registry.properties["tg"].column
+    ]
+    return inside + outside, inside, outside
+
+
+def tg_rmse_ladder_counts(rows: Any, mask: Any, registry: Registry) -> list[tuple[float, int]]:
+    """Rows within ``mask`` with ``tg_rmse <= rung`` for every registry rung (F-65).
+
+    The rungs are ``PropertySpec.tg_rmse_ladder`` of ``tg``; no rung is applied
+    as a cut (R-2). A registry without a ladder yields an empty list.
+    """
+    ladder = registry.properties["tg"].tg_rmse_ladder or ()
+    values = rows.loc[mask, TG_RMSE_COLUMN]
+    return [(rung, int((values <= rung).sum())) for rung in ladder]
+
+
+def tg_rmse_descriptives(source_rows: Any) -> dict[str, float]:
+    """Median, p95, p99 and max of ``tg_rmse`` over the rows that carry it (F-23)."""
+    values = source_rows[TG_RMSE_COLUMN].dropna()
+    return {
+        "median": float(values.median()),
+        "p95": float(values.quantile(TG_RMSE_P95)),
+        "p99": float(values.quantile(TG_RMSE_P99)),
+        "max": float(values.max()),
+    }
+
+
+@dataclass(frozen=True)
+class FeasibleSet:
+    """The feasible-set size under one (Q25, Tg minimum) pair -- an input, not a decision."""
+
+    q25_eps: float
+    tg_min_k: float
+    n_feasible: int
+    n_population: int
+    pct: float
+
+
+def feasible_set(
+    candidates: Any,
+    registry: Registry,
+    *,
+    quantile: float = DEV_DEFAULT_EPS_QUANTILE,
+    tg_min_k: float = DEV_DEFAULT_TG_MIN_K,
+) -> FeasibleSet:
+    """Candidates with ``eps_dc_median <= Q(quantile)`` and ``tg_median >= tg_min_k`` (F-62).
+
+    Q is taken over the candidate medians of the frame given; both comparisons
+    are inclusive.
+    """
+    eps = candidates[registry.properties["dielectric_const_dc"].column + MEDIAN_SUFFIX]
+    tg = candidates[registry.properties["tg"].column + MEDIAN_SUFFIX]
+    q25 = float(eps.quantile(quantile))
+    feasible = (eps <= q25) & (tg >= tg_min_k)
+    n_feasible = int(feasible.sum())
+    n_population = int(len(candidates))
+    pct = round(100.0 * n_feasible / n_population, 2) if n_population else 0.0
+    return FeasibleSet(q25, tg_min_k, n_feasible, n_population, pct)
+
+
+def feasible_rows(rows: Any, mask: Any, registry: Registry, *, q25_eps: float, tg_min_k: float) -> int:
+    """Rows within ``mask`` with ``eps_dc <= q25_eps`` and ``tg >= tg_min_k`` (row level, F-62)."""
+    subset = rows.loc[mask]
+    eps = subset[registry.properties["dielectric_const_dc"].column]
+    tg = subset[registry.properties["tg"].column]
+    return int(((eps <= q25_eps) & (tg >= tg_min_k)).sum())

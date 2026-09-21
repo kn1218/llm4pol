@@ -3,8 +3,10 @@
 Sections, in report order: ``Fetch identity``, ``Source shape``, ``Scope
 exclusions and identity`` (plan 02-01), ``Coverage per registry property``,
 ``Physical-range filter counts``, ``Dielectric columns: identity and Maxwell
-check``, ``README triple ladder`` (plan 02-05, charter section 13 M1 (2)-(3)),
-``Replicate structure and noise floor`` (plan 02-04: D-04, D-9, M1 (4)),
+check``, ``README triple ladder``, ``Tg window and tg_rmse ladder`` (plan
+02-05, charter section 13 M1 (2)-(3), DATA-09), ``Replicate structure and
+noise floor`` (plan 02-04: D-04, D-9, M1 (4)), ``Feasible set under the
+development defaults (input to the D-16 gate)`` (plan 02-05, M1 (5), DATA-08),
 ``Findings``. Every count is a pure function of the frames and the registry in
 ``filters.py`` / ``replicates.py``; this module names populations (D-10) and
 renders. Exit 0 when every expectation is reproduced or documented, 1 on any
@@ -34,7 +36,9 @@ from llm4pol.data.expectations import (
     PINNED_FILES,
     SPEARMAN_PAIRS,
     TC_TG_ROWS,
+    TG_RMSE_ROWS,
     TRIPLE_ALL_ROWS,
+    TRIPLE_IN_SCOPE,
     Expectations,
     population_of,
 )
@@ -117,6 +121,34 @@ _LADDER_INTRO = (
     "The naive `dielectric_const_dc` filters the README could have meant are printed and "
     "not used. The rank correlations and the README window (top-decile thermal conductivity "
     "and bottom-quartile `dielectric_const_dc`) are confirmations (F-11, F-12)."
+)
+
+
+_TG_INTRO = (
+    "`tg` is the glass-transition temperature of RadonPy's two-line density fit; `tg_rmse` is "
+    "the sum of squared density residuals of that fit, in the registry's `tg_rmse_unit` "
+    "(g/cm^3)^2, not kelvin (F-23). The window counts rows inside and outside the registry "
+    "physical range on all source rows (F-64). The ladder counts the in-scope README-triple "
+    "rows at every registry rung (F-65); no `tg_rmse` cut is applied in M1 (R-2), so the "
+    "numbers satisfy either reading of DATA-09 and the evaluator's population stays a Phase 3 "
+    "decision."
+)
+_DATA_09_FLAG = (
+    "Wording discrepancy raised for the owner: REQUIREMENTS.md DATA-09 reads \"filtered by "
+    "tg_rmse\"; CONTEXT R-2 (a development default recorded with the owner unavailable) applies "
+    "no tg_rmse cut in M1 and records the ladder instead. This report records the count at "
+    "every rung so the numbers satisfy either reading; which reading holds is an owner "
+    "decision (precedence: charter > REQUIREMENTS.md > phase context, ADR-0002). Nothing is "
+    "resolved here."
+)
+_FEASIBLE_INTRO = (
+    "The feasible set is the candidates of the README triple (filter then median) whose "
+    "`dielectric_const_dc` median is at or below the Q25 of those medians and whose `tg` "
+    "median is at or above the Tg minimum, both inclusive (F-60, F-62). The row-level count "
+    "on the in-scope README-triple rows is printed under the row-level Q25 and under the "
+    "candidate Q25 so nothing is lost either way. These thresholds are the charter's "
+    "development defaults (section 13, D-16 row). This section is an input to the D-16 gate, "
+    "which is fixed at the Phase 7 pre-registration (ADR-0005); nothing here is a decision."
 )
 
 
@@ -234,6 +266,7 @@ def _read_processed(processed: Path, csv_sha: str, registry: Registry) -> tuple[
         filters.TACTICITY_COLUMN,
         filters.CHECK_TC_COLUMN,
         filters.STATIC_COLUMN,
+        filters.TG_RMSE_COLUMN,
         *registry.columns(),
         *VERSION_COLUMNS,
     )
@@ -466,6 +499,140 @@ def _dielectric(source: Any, registry: Registry) -> tuple[Section, dict[str, Val
     return section, observed
 
 
+def _tg_section(source: Any, rows: Any, registry: Registry) -> tuple[Section, dict[str, Value]]:
+    tg = registry.properties["tg"]
+    low, high = tg.physical_range
+    window_label = f"[{low}, {high}] {_unit_label(tg.unit)}"
+    non_null, inside, outside = filters.tg_window_counts(source, registry)
+    triple_all = filters.readme_triple_mask(source, registry)
+    triple_scope = filters.readme_triple_mask(rows, registry)
+    ladder = filters.tg_rmse_ladder_counts(rows, triple_scope, registry)
+    descriptives = filters.tg_rmse_descriptives(source)
+    observed: dict[str, Value] = {
+        "tg_non_null": non_null,
+        "tg_inside_window": inside,
+        "tg_outside_window": outside,
+        "tg_median_all_rows": float(source[tg.column].median()),
+        "tg_median_triple_rows": float(source.loc[triple_all, tg.column].median()),
+        "tg_rmse_median": descriptives["median"],
+        "tg_rmse_p95": descriptives["p95"],
+        "tg_rmse_p99": descriptives["p99"],
+        "tg_rmse_max": descriptives["max"],
+    }
+    for rung, count in ladder:
+        observed[f"tg_rmse_le_{rung}"] = count
+    window = CountTable(
+        title="Tg window",
+        header=("quantity", "population", "rows"),
+        rows=[
+            (f"{tg.column} non-null", ALL_SOURCE_ROWS, format_int(non_null)),
+            (f"{tg.column} inside {window_label}", ALL_SOURCE_ROWS, format_int(inside)),
+            (f"{tg.column} outside {window_label}", ALL_SOURCE_ROWS, format_int(outside)),
+        ],
+    )
+    medians = CountTable(
+        title="Tg medians",
+        header=QUANTITY_HEADER,
+        rows=[
+            (f"{tg.column} median", ALL_SOURCE_ROWS, f"{observed['tg_median_all_rows']:.1f} {tg.unit}"),
+            (
+                f"{tg.column} median",
+                TRIPLE_ALL_ROWS,
+                f"{observed['tg_median_triple_rows']:.1f} {tg.unit}",
+            ),
+        ],
+    )
+    ladder_table = CountTable(
+        title="tg_rmse ladder (no cut applied)",
+        header=("tg_rmse <= rung", "population", "rows"),
+        rows=[(f"tg_rmse <= {rung}", TRIPLE_IN_SCOPE, format_int(count)) for rung, count in ladder],
+    )
+    unit = tg.tg_rmse_unit or ""
+    spread = CountTable(
+        title="tg_rmse descriptives",
+        header=QUANTITY_HEADER,
+        rows=[
+            ("tg_rmse median", TG_RMSE_ROWS, f"{descriptives['median']:.3f} {unit}"),
+            ("tg_rmse p95", TG_RMSE_ROWS, f"{descriptives['p95']:.3f} {unit}"),
+            ("tg_rmse p99", TG_RMSE_ROWS, f"{descriptives['p99']:.3f} {unit}"),
+            ("tg_rmse max", TG_RMSE_ROWS, f"{descriptives['max']:.1f} {unit}"),
+        ],
+    )
+    section = Section(
+        title="Tg window and tg_rmse ladder",
+        intro=_TG_INTRO + "\n\n" + _DATA_09_FLAG,
+        tables=[window, medians, ladder_table, spread],
+    )
+    return section, observed
+
+
+def _feasible_section(rows: Any, registry: Registry) -> tuple[Section, dict[str, Value]]:
+    eps = registry.properties["dielectric_const_dc"]
+    tg = registry.properties["tg"]
+    triple = filters.readme_triple_mask(rows, registry)
+    candidates = filters.candidate_level_triple(rows, registry)
+    feasible = filters.feasible_set(candidates, registry)
+    row_q25 = float(rows.loc[triple, eps.column].quantile(filters.DEV_DEFAULT_EPS_QUANTILE))
+    tg_min = feasible.tg_min_k
+    observed: dict[str, Value] = {
+        "eps_q25_candidates": feasible.q25_eps,
+        "eps_q25_triple_rows": row_q25,
+        "feasible_candidates_dev_defaults": feasible.n_feasible,
+        "feasible_pct_dev_defaults": feasible.pct,
+        "feasible_rows_dev_defaults": filters.feasible_rows(
+            rows, triple, registry, q25_eps=row_q25, tg_min_k=tg_min
+        ),
+        "feasible_rows_under_candidate_q25": filters.feasible_rows(
+            rows, triple, registry, q25_eps=feasible.q25_eps, tg_min_k=tg_min
+        ),
+        "triple_in_scope_rows_for_feasible": int(triple.sum()),
+    }
+    tg_label = f"{tg_min} {tg.unit}"
+    candidate_table = CountTable(
+        title="Feasible candidates",
+        header=QUANTITY_HEADER,
+        rows=[
+            (
+                f"Q25 of {eps.column} candidate medians",
+                CANDIDATE_TRIPLE,
+                format_float(feasible.q25_eps, 4),
+            ),
+            (f"{tg.column} minimum (development default)", CANDIDATE_TRIPLE, tg_label),
+            (
+                f"feasible candidates (eps_dc_median <= Q25 and tg_median >= {tg_label})",
+                CANDIDATE_TRIPLE,
+                format_int(feasible.n_feasible),
+            ),
+            ("candidates", CANDIDATE_TRIPLE, format_int(feasible.n_population)),
+            ("feasible share", CANDIDATE_TRIPLE, _pct(feasible.pct)),
+        ],
+    )
+    row_table = CountTable(
+        title="Feasible rows",
+        header=QUANTITY_HEADER,
+        rows=[
+            (f"Q25 of {eps.column} rows", TRIPLE_IN_SCOPE, format_float(row_q25, 4)),
+            (
+                "feasible rows under the row Q25",
+                TRIPLE_IN_SCOPE,
+                format_value(observed["feasible_rows_dev_defaults"]),
+            ),
+            (
+                "feasible rows under the candidate Q25",
+                TRIPLE_IN_SCOPE,
+                format_value(observed["feasible_rows_under_candidate_q25"]),
+            ),
+            ("rows", TRIPLE_IN_SCOPE, format_value(observed["triple_in_scope_rows_for_feasible"])),
+        ],
+    )
+    section = Section(
+        title="Feasible set under the development defaults (input to the D-16 gate)",
+        intro=_FEASIBLE_INTRO,
+        tables=[candidate_table, row_table],
+    )
+    return section, observed
+
+
 LadderStep = tuple[str, str]  # (label, finding id)
 
 
@@ -616,6 +783,8 @@ def _build_report(
     range_section, range_observed = _physical_ranges(source, registry)
     dielectric_section, dielectric_observed = _dielectric(source, registry)
     ladder_observed, steps = _ladder_observed(source, rows, registry)
+    tg_section, tg_observed = _tg_section(source, rows, registry)
+    feasible_section, feasible_observed = _feasible_section(rows, registry)
     replicate_sec, replicate_observed = replicate_section(
         rows, candidates, registry, rows_population=IN_SCOPE_ROWS
     )
@@ -626,6 +795,8 @@ def _build_report(
         **range_observed,
         **dielectric_observed,
         **ladder_observed,
+        **tg_observed,
+        **feasible_observed,
         **replicate_observed,
     }
     findings: list[Finding] = [
@@ -647,7 +818,9 @@ def _build_report(
             range_section,
             dielectric_section,
             ladder_section,
+            tg_section,
             replicate_sec,
+            feasible_section,
         ],
         findings=findings,
     )

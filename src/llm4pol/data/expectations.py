@@ -31,6 +31,7 @@ DIELECTRIC_ROWS = "rows with dielectric_const_dc and refractive_index"
 CANDIDATE_TRIPLE = "candidate-level README triple (filter then median)"
 CANDIDATE_TRIPLE_ALT = "candidate-level README triple (median then filter)"
 TC_TG_ROWS = "rows with thermal_conductivity and tg in range (all source rows)"
+TG_RMSE_ROWS = "rows with tg_rmse (all source rows)"
 
 _F52_NOTE = "F-52 counted on (smiles_list, tacticity) groups; here by candidate_id (F-35 merges)"
 _NOISE_NOTE = "F-55: median over candidates with n >= 2 of std / |median|"
@@ -49,6 +50,17 @@ _CANONICAL_TWINS_NOTE = (
 )
 _CARD_NOTE = "F-19: the dataset card's description text; the Table S2 origin is an assumption (A1)"
 CARD_NOT_REPRODUCIBLE = "not reproducible from any column"
+_TG_RMSE_NOTE = "F-23: tg_rmse is a sum of squared density residuals in (g/cm^3)^2, not kelvin"
+_Q25_NOTE = "F-60: Q25 of dielectric_const_dc, pandas linear interpolation"
+_FEASIBLE_NOTE = (
+    "F-62: development defaults (charter section 13, D-16 row); an input to the D-16 gate, "
+    "not a decision (ADR-0005)"
+)
+_FEASIBLE_ROWS_NOTE = (
+    "F-62: row-level count under the row-level Q25 (2.6427); the count under the candidate "
+    "Q25 is printed beside it"
+)
+_ORDER_NOTE = "F-61: median then filter is the alternative order, printed and not used"
 
 # Finding ids -> (class, value, tolerance, note, digits). Plan 02-01: F-06, F-07,
 # F-32, F-37; plan 02-04: F-50, F-52, F-55, F-56; plan 02-05: F-08, F-11..F-19,
@@ -123,6 +135,26 @@ EXPECTED_POLYOMICS: dict[str, Expected] = {
     ),
     "noise_floor_triple_rel_dielectric_const_dc": Expected(DOCUMENTED, 0.0112, 0.001, _TRIPLE_NOTE),
     "noise_floor_triple_rel_tg": Expected(DOCUMENTED, 0.0540, 0.001, _TRIPLE_NOTE),
+    "tg_non_null": Expected(REPRODUCE, 56064),
+    "tg_inside_window": Expected(REPRODUCE, 52753),
+    "tg_outside_window": Expected(REPRODUCE, 3311),
+    "tg_rmse_le_0.05": Expected(REPRODUCE, 36592),
+    "tg_rmse_le_0.1": Expected(REPRODUCE, 42232),
+    "tg_rmse_le_0.2": Expected(REPRODUCE, 43316),
+    "tg_rmse_le_0.5": Expected(REPRODUCE, 43521),
+    "tg_rmse_le_1.0": Expected(REPRODUCE, 43545),
+    "tg_median_all_rows": Expected(DOCUMENTED, 488.5, 0.1, "F-63", 1),
+    "tg_median_triple_rows": Expected(DOCUMENTED, 472.2, 0.1, "F-63", 1),
+    "tg_rmse_median": Expected(DOCUMENTED, 0.029, 0.001, _TG_RMSE_NOTE, 3),
+    "tg_rmse_p95": Expected(DOCUMENTED, 0.099, 0.001, _TG_RMSE_NOTE, 3),
+    "tg_rmse_p99": Expected(DOCUMENTED, 0.236, 0.002, _TG_RMSE_NOTE, 3),
+    "tg_rmse_max": Expected(DOCUMENTED, 36.3, 0.1, _TG_RMSE_NOTE, 1),
+    "eps_q25_candidates": Expected(DOCUMENTED, 2.6524, 0.0005, _Q25_NOTE),
+    "eps_q25_triple_rows": Expected(DOCUMENTED, 2.6427, 0.0005, _Q25_NOTE),
+    "feasible_candidates_dev_defaults": Expected(REPRODUCE, 6793),
+    "feasible_pct_dev_defaults": Expected(DOCUMENTED, 16.89, 0.02, _FEASIBLE_NOTE, 2),
+    "feasible_rows_dev_defaults": Expected(DOCUMENTED, 7317, 0, _FEASIBLE_ROWS_NOTE),
+    "candidate_triple_median_then_filter": Expected(DOCUMENTED, 40426, 0, _ORDER_NOTE),
 }
 
 # The population each observed quantity is drawn from (D-10). Ids built per
@@ -188,6 +220,22 @@ POPULATIONS: dict[str, str] = {
     "noise_floor_triple_rel_thermal_conductivity": NOISE_POPULATION_TRIPLE,
     "noise_floor_triple_rel_dielectric_const_dc": NOISE_POPULATION_TRIPLE,
     "noise_floor_triple_rel_tg": NOISE_POPULATION_TRIPLE,
+    "tg_non_null": ALL_SOURCE_ROWS,
+    "tg_inside_window": ALL_SOURCE_ROWS,
+    "tg_outside_window": ALL_SOURCE_ROWS,
+    "tg_median_all_rows": ALL_SOURCE_ROWS,
+    "tg_median_triple_rows": TRIPLE_ALL_ROWS,
+    "tg_rmse_median": TG_RMSE_ROWS,
+    "tg_rmse_p95": TG_RMSE_ROWS,
+    "tg_rmse_p99": TG_RMSE_ROWS,
+    "tg_rmse_max": TG_RMSE_ROWS,
+    "eps_q25_candidates": CANDIDATE_TRIPLE,
+    "eps_q25_triple_rows": TRIPLE_IN_SCOPE,
+    "feasible_candidates_dev_defaults": CANDIDATE_TRIPLE,
+    "feasible_pct_dev_defaults": CANDIDATE_TRIPLE,
+    "feasible_rows_dev_defaults": TRIPLE_IN_SCOPE,
+    "feasible_rows_under_candidate_q25": TRIPLE_IN_SCOPE,
+    "triple_in_scope_rows_for_feasible": TRIPLE_IN_SCOPE,
 }
 
 # Spearman pairs of the README's correlation table, by registry key (F-11).
@@ -209,4 +257,6 @@ def population_of(finding_id: str) -> str:
         return ALL_SOURCE_ROWS
     if finding_id.startswith("spearman_"):
         return TRIPLE_ALL_ROWS
+    if finding_id.startswith("tg_rmse_le_"):
+        return TRIPLE_IN_SCOPE
     raise KeyError(f"finding {finding_id!r} names no population (D-10)")
