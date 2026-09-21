@@ -1,0 +1,4 @@
+# One line-ending convention on both CI platforms (windows-latest, ubuntu-latest).
+* text=auto eol=lf
+*.png binary
+*.lock text eol=lf
