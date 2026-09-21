@@ -39,7 +39,7 @@ L5 belongs to the gated follow-ons M8/M9 and is not in this roadmap.
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Reproducible development base; one check gate green on both CI platforms (charter M0) (completed 2026-09-22)
-- [ ] **Phase 2: Data Foundation** - PolyOmics snapshot pinned, loaded, identified and validated with a numbers-of-record report (charter M1)
+- [x] **Phase 2: Data Foundation** - PolyOmics snapshot pinned, loaded, identified and validated with a numbers-of-record report (charter M1) (completed 2026-09-22)
 - [ ] **Phase 3: Evaluator (table backend)** - One evaluator contract with status taxonomy, cache, two-currency budget and provenance (charter M2)
 - [ ] **Phase 4: Run Management** - Append-only run records with resume and byte-identical replay (charter M3)
 - [ ] **Phase 5: Deterministic End-to-End** - Seed-reproducible 10-iteration four-beam campaign with no LLM (charter M4)
@@ -214,7 +214,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 (ch
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 1/1 | Complete    | 2026-09-22 |
-| 2. Data Foundation | 5/5 | In Progress|  |
+| 2. Data Foundation | 5/5 | Complete    | 2026-09-22 |
 | 3. Evaluator (table backend) | 0/? | Not started | - |
 | 4. Run Management | 0/? | Not started | - |
 | 5. Deterministic End-to-End | 0/? | Not started | - |

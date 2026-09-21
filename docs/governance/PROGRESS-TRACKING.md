@@ -26,5 +26,6 @@ functions, unimplemented branches, or a passing gate on code that nothing calls.
 | PROJECT FOUNDATION PROPOSAL | Approved 2026-09-21, promoted to the charter (ADR-0005) |
 | Charter, `MASTER-PLAN.md` | **Approved v1.0.** D-16/D-17/D-18 gated at M6/M8/M9 |
 | M0 reproducible base (Phase 1) | **Done 2026-09-22.** Exit criteria reproduced in `.planning/phases/01-foundation/01-VERIFICATION.md`: six-step gate green on windows-latest and ubuntu-latest (CI run 35627403598), history secret scan as the R-3 guard, `huggingface_hub` import proof. Remote: github.com/kn1218/llm4pol (public; private-repo Actions were blocked by account billing) |
+| M1 data foundation (Phase 2) | **Done 2026-09-22.** `.planning/phases/02-data-foundation/02-VERIFICATION.md` 26/26; validator report `docs/audit/polyomics-041e5834-validation.md` is the number authority (49 reproduced, 38 documented, 0 failed); CI 7/7 on both platforms (runs 35648565974, 35651579337). Owner questions recorded there: DATA-09 `tg_rmse` wording vs R-2, 303 unknown-tacticity twins, 43,561 vs 42,733 population, 88.82 % rounding |
 | GSD initialisation | Done 2026-09-21: `.planning/{PROJECT,REQUIREMENTS,ROADMAP,STATE}.md`, 8 phases = M0..M7, 41/41 requirements mapped; drift review against charter §13 passed |
 | Production code | None yet; permitted under the approved charter, built in the §13 order |
