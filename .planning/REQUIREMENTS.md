@@ -33,8 +33,8 @@ subordinate to the charter (ADR-0002).
 - [x] **EVAL-02**: Each (candidate, property) response carries exactly one status in `{ok, unsupported, missing, error}`; `unsupported` (not in registry) and `missing` (row present, value absent) consume no budget; `error` is retryable
 - [x] **EVAL-03**: Every response carries `backend`, `source`, `provenance_tier`, `n_replicates`, `spread`, `unit` and `cost {evals, cpu_hours}`
 - [x] **EVAL-04**: The cache is keyed by `(candidate_id, property, backend, source)`; a cache hit leaves `evals` unchanged
-- [ ] **EVAL-05**: A batch request of 100 entries returns responses in request order with matching count
-- [ ] **EVAL-06**: import-linter contracts forbid `llm4pol.loop` → `llm4pol.evaluate.backends.radonpy`, `llm4pol.evaluate` → `llm4pol.loop`/`llm4pol.llm`, and restrict `llm4pol.llm` to `llm4pol.loop.agents` (A-1, A-2)
+- [x] **EVAL-05**: A batch request of 100 entries returns responses in request order with matching count
+- [x] **EVAL-06**: import-linter contracts forbid `llm4pol.loop` → `llm4pol.evaluate.backends.radonpy`, `llm4pol.evaluate` → `llm4pol.loop`/`llm4pol.llm`, and restrict `llm4pol.llm` to `llm4pol.loop.agents` (A-1, A-2)
 
 ### Run management (charter §13 M3, §7, §4 A-3, A-6)
 
@@ -124,8 +124,8 @@ Which phases cover which requirements. Phase N is charter milestone M(N-1); see 
 | EVAL-02 | Phase 3 (Evaluator (table backend)) | Complete |
 | EVAL-03 | Phase 3 (Evaluator (table backend)) | Complete |
 | EVAL-04 | Phase 3 (Evaluator (table backend)) | Complete |
-| EVAL-05 | Phase 3 (Evaluator (table backend)) | Pending |
-| EVAL-06 | Phase 3 (Evaluator (table backend)) | Pending |
+| EVAL-05 | Phase 3 (Evaluator (table backend)) | Complete |
+| EVAL-06 | Phase 3 (Evaluator (table backend)) | Complete |
 | RUN-01 | Phase 4 (Run Management) | Pending |
 | RUN-02 | Phase 4 (Run Management) | Pending |
 | RUN-03 | Phase 4 (Run Management) | Pending |

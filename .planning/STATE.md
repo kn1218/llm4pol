@@ -4,17 +4,17 @@ milestone: v1.0
 current_phase: 3
 current_phase_name: Evaluator (table backend)
 current_plan: 3
-status: executing
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-09-21T22:00:15.141Z"
+status: verifying
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-09-21T22:15:27.106Z"
 last_activity: 2026-09-22
 last_activity_desc: Phase 2 complete, transitioned to Phase 03
-state_head: 6b183cabff79f8508142d0ed1f624a442fd5d366
+state_head: 9977536717644a09b4358371163f6537df89395a
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -32,7 +32,7 @@ Charter: docs/MASTER-PLAN.md v1.0 (approved 2026-09-21, ADR-0005) — highest so
 Phase: 3 (Evaluator (table backend)) — READY TO EXECUTE
 Current Plan: 3
 Total Plans in Phase: 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-09-22 — Phase 2 complete, transitioned to Phase 03
 
 Progress: [░░░░░░░░░░] 0%
@@ -70,6 +70,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02 P05 | 45min | 4 tasks | 12 files |
 | Phase 03 P01 | 16 min | 3 tasks | 19 files |
 | Phase 03 P02 | 9min | 2 tasks | 10 files |
+| Phase 03 P03 | 13min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,8 @@ Recent decisions affecting current work:
 - [Phase 03]: 03-01: ValueError kept at the from_json boundary via one _wrong_type helper (ruff 0.16 TRY004 answered structurally, no noqa); ruff isort known-first-party = [llm4pol] so RED-state submodule imports stay stably ordered through GREEN
 - [Phase 03]: 03-01: the evaluator applies no population filter (D-03) and charges evals once per distinct candidate per request on its first ok result (R-2); the committed eval-response example is the evaluator's own output on the synthetic table
 - [Phase 3]: 03-02: unsupported is decided before a cache key exists (never reaches the cache); a cache hit is dataclasses.replace(hit, cached=True, cost=Cost(0, 0.0)); the CLI meter is per invocation, cross-run spend belongs to the Phase 4 ledger
+- [Phase 3]: 03-03: the loop.agents-only llm import contract added per REQUIREMENTS.md EVAL-06 over CONTEXT R-1 (precedence); owner flag, one block and one test to reverse
+- [Phase 3]: 03-03: A-2 written as an optional-layers import-linter contract (both layers in parentheses) because a forbidden contract errors on an absent source; Phase 5 may rewrite it once llm4pol.loop exists
 
 ### Pending Todos
 
@@ -118,6 +121,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-21T22:00:15.080Z
-Stopped at: Completed 03-02-PLAN.md
+Last session: 2026-09-21T22:15:27.047Z
+Stopped at: Completed 03-03-PLAN.md
 Resume file: None

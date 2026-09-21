@@ -115,7 +115,7 @@ Charter §8 permits fetch/identity ∥ validate inside this phase.
   5. Schema validation of `eval-request.json` / `eval-response.json` and the first import-linter contract run inside the check gate (charter §13 M2)
 
 **Freezes**: evaluator request/response (`protocol/schemas/eval-request.json`, `eval-response.json`), import boundary in `pyproject.toml [tool.importlinter]` enforcing A-1 and A-2 (charter §7, §13 M2)
-**Plans**: 2/3 plans executed
+**Plans**: 3/3 plans executed
 
 Plans:
 **Wave 1**
@@ -128,7 +128,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 03-03-PLAN.md — The four import-linter contracts (A-2 in the optional-layers form) with guard-on-the-guard tests, A-1/A-2 promoted, real-file batch of 100 + cached second batch + CLI run, push, CI on both platforms, `03-EVIDENCE.md` (wave 3)
+- [x] 03-03-PLAN.md — The four import-linter contracts (A-2 in the optional-layers form) with guard-on-the-guard tests, A-1/A-2 promoted, real-file batch of 100 + cached second batch + CLI run, push, CI on both platforms, `03-EVIDENCE.md` (wave 3)
 
 Charter §8: M2 ∥ M3 is permitted (M3 needs only the response format), but inside this phase the waves are sequential — each plan extends the evaluator the tracer proved.
 
@@ -230,7 +230,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 (ch
 |-------|----------------|--------|-----------|
 | 1. Foundation | 1/1 | Complete    | 2026-09-22 |
 | 2. Data Foundation | 5/5 | Complete    | 2026-09-22 |
-| 3. Evaluator (table backend) | 2/3 | In Progress|  |
+| 3. Evaluator (table backend) | 3/3 | In Progress|  |
 | 4. Run Management | 0/? | Not started | - |
 | 5. Deterministic End-to-End | 0/? | Not started | - |
 | 6. LLM Loop | 0/? | Not started | - |
