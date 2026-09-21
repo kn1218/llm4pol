@@ -1,6 +1,6 @@
-"""Status taxonomy, provenance, no-population-filter and 100-batch order on the synthetic table.
+"""Status taxonomy, provenance, no-population-filter, 100-batch order and the `error` path on the synthetic table.
 
-CONTEXT D-02 (each status), D-03 (value semantics; no filter), D-04 / R-2
+CONTEXT D-02 (each status, `error` retryable and never cached), D-03 (value semantics; no filter), D-04 / R-2
 (per-candidate charging), D-05 (``Backend`` protocol); EVAL-02, EVAL-03,
 EVAL-05; charter section 13 M2 (1), (3), (4). Every number is the synthetic
 fixture's own arithmetic (RESEARCH F-40) and is cross-checked against the
@@ -15,22 +15,26 @@ import dataclasses
 import itertools
 import json
 import math
+import shutil
 from pathlib import Path
 from typing import Any
 
 import jsonschema
 import pandas as pd
+import pyarrow.parquet as pq
 
-from conftest import UNKNOWN_CANDIDATE_ID
+from conftest import SYNTHETIC_EXAMPLE_REQUEST, UNKNOWN_CANDIDATE_ID
 from llm4pol.data import snapshot
 from llm4pol.data.registry import load_registry
 from llm4pol.evaluate import (
     RESPONSE_SCHEMA_PATH,
     Backend,
+    BudgetMeter,
     Cost,
     EvalRequest,
     EvalResponse,
     Evaluator,
+    JsonlCache,
     Lookup,
     PropertyTable,
     parse_request,
@@ -297,3 +301,92 @@ def test_response_cost_is_the_sum_of_result_costs(synthetic_candidates: Path) ->
     assert response.cost.evals == sum(r.cost.evals for r in response.results)
     assert response.cost.cpu_hours == sum(r.cost.cpu_hours for r in response.results) == 0.0
     assert response.cost == Cost(9, 0.0)
+
+
+# --------------------------------------------------------------------------
+# The `error` status: absent or mismatched parquet, retryable, budget-free,
+# never cached (D-02, R-4, EVAL-02; charter section 13 M2 (1); T-03-08, T-03-09)
+# --------------------------------------------------------------------------
+
+
+def _error_evaluator(parquet: Path, cache_path: Path) -> tuple[Evaluator, JsonlCache]:
+    properties = PropertyTable.load()
+    cache = JsonlCache(cache_path)
+    return Evaluator(TableBackend(parquet, properties=properties), properties, cache=cache), cache
+
+
+def _example_request() -> EvalRequest:
+    return parse_request(SYNTHETIC_EXAMPLE_REQUEST)
+
+
+def _assert_all_error(response: EvalResponse, reason: str, cache: JsonlCache) -> None:
+    for result in response.results:
+        if result.property == "melting_point":
+            _assert_non_ok(result, "unsupported", None)
+            continue
+        _assert_non_ok(result, "error", reason)
+        assert result.cached is False
+    assert response.cost == Cost(0, 0.0)
+    assert len(cache) == 0
+    schema = json.loads(RESPONSE_SCHEMA_PATH.read_text(encoding="utf-8"))
+    jsonschema.Draft202012Validator(schema).validate(response.to_json())
+
+
+def test_error_when_the_parquet_is_absent_consumes_no_evals_and_is_not_cached(
+    tmp_path: Path,
+) -> None:
+    cache_path = tmp_path / "cache.jsonl"
+    evaluator, cache = _error_evaluator(tmp_path / "absent.parquet", cache_path)
+    response = evaluator.evaluate(_example_request())
+    assert len(response.results) == 9
+    assert [r.status for r in response.results].count("error") == 8
+    _assert_all_error(response, "FileNotFoundError", cache)
+    assert not cache_path.exists()
+    assert evaluator.meter == BudgetMeter()
+
+
+def test_error_is_retried_once_the_parquet_appears(
+    synthetic_candidates: Path, tmp_path: Path
+) -> None:
+    absent = tmp_path / "later" / "candidates.parquet"
+    cache_path = tmp_path / "cache.jsonl"
+    evaluator, cache = _error_evaluator(absent, cache_path)
+    first = evaluator.evaluate(_example_request())
+    _assert_all_error(first, "FileNotFoundError", cache)
+
+    absent.parent.mkdir(parents=True)
+    shutil.copyfile(_parquet(synthetic_candidates), absent)
+    second = evaluator.evaluate(_example_request())
+    assert [r.status for r in second.results] == [
+        "ok",
+        "ok",
+        "ok",
+        "missing",
+        "missing",
+        "ok",
+        "missing",
+        "unsupported",
+        "ok",
+    ]
+    assert second.cost.evals == 3
+    assert all(r.cached is False for r in second.results)
+    assert len(cache) == 8
+    assert evaluator.meter.evals == 3
+
+
+def test_error_on_snapshot_mismatch_names_the_exception_class(
+    synthetic_candidates: Path, tmp_path: Path
+) -> None:
+    table = pq.read_table(_parquet(synthetic_candidates))
+    assert table.schema.metadata[b"llm4pol.snapshot"] == snapshot.SNAPSHOT_ID.encode("utf-8")
+    mismatched = tmp_path / "mismatched.parquet"
+    pq.write_table(
+        table.replace_schema_metadata(
+            {b"llm4pol.snapshot": b"polyomics:general_polymers@deadbeef"}
+        ),
+        mismatched,
+    )
+    evaluator, cache = _error_evaluator(mismatched, tmp_path / "cache.jsonl")
+    response = evaluator.evaluate(_example_request())
+    _assert_all_error(response, "SnapshotMismatch", cache)
+    assert evaluator.meter == BudgetMeter()

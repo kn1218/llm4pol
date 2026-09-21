@@ -138,3 +138,134 @@ def test_cli_exit_2_on_a_request_schema_failure(
     captured = capsys.readouterr()
     assert captured.out == ""
     assert captured.err.startswith("ERROR:")
+
+
+# --------------------------------------------------------------------------
+# Exit codes 0 / 2 / 3 and --cache / --evals-limit (D-07, R-4; RESEARCH Code Example 5)
+# --------------------------------------------------------------------------
+
+_TWO_OK: dict[str, object] = {
+    "run_id": "two-ok",
+    "iteration": 0,
+    "batch": [
+        {"candidate_id": "7ec8cb49ff317efc", "properties": ["thermal_conductivity"]},
+        {"candidate_id": "81b997b85ccd2069", "properties": ["thermal_conductivity"]},
+        {"candidate_id": "b3a635a55e1a6645", "properties": ["tg"]},
+    ],
+}
+
+
+def _run(args: list[str], capsys: pytest.CaptureFixture[str]) -> tuple[int, str, str]:
+    capsys.readouterr()
+    code = cli.main(args)
+    captured = capsys.readouterr()
+    return code, captured.out, captured.err
+
+
+def _line_count(path: Path) -> int:
+    return path.read_text(encoding="utf-8").count("\n")
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "absent-request",
+        "bad-json",
+        "schema-failure",
+        "cache-is-a-directory",
+        "malformed-cache-line",
+    ],
+)
+def test_cli_exit_2_on_missing_request_bad_json_and_schema_failure(
+    synthetic_candidates: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str], case: str
+) -> None:
+    request_path = _write_request(tmp_path, SYNTHETIC_EXAMPLE_REQUEST)
+    args = ["--root", str(synthetic_candidates)]
+    if case == "absent-request":
+        args += ["--request", str(tmp_path / "absent.json")]
+    elif case == "bad-json":
+        bad = tmp_path / "bad.json"
+        bad.write_text("{not json", encoding="utf-8")
+        args += ["--request", str(bad)]
+    elif case == "schema-failure":
+        args += ["--request", str(_write_request(tmp_path, _DUPLICATE_PROPERTIES))]
+    elif case == "cache-is-a-directory":
+        (tmp_path / "cache-dir").mkdir()
+        args += ["--request", str(request_path), "--cache", str(tmp_path / "cache-dir")]
+    else:
+        cache = tmp_path / "cache.jsonl"
+        # A first run persists the cache, then a malformed line is appended by hand.
+        assert _run([*args, "--request", str(request_path), "--cache", str(cache)], capsys)[0] == 0
+        with cache.open("a", encoding="utf-8", newline="\n") as fh:
+            fh.write("{not json\n")
+        args += ["--request", str(request_path), "--cache", str(cache)]
+
+    code, out, err = _run(args, capsys)
+    assert code == 2
+    assert out == ""
+    assert err.startswith("ERROR:")
+
+
+def test_cli_exit_3_when_evals_limit_would_be_exceeded_and_nothing_is_committed(
+    synthetic_candidates: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    request_path = _write_request(tmp_path, _TWO_OK)
+    cache = tmp_path / "cache.jsonl"
+    common = [
+        "--request",
+        str(request_path),
+        "--root",
+        str(synthetic_candidates),
+        "--cache",
+        str(cache),
+    ]
+
+    code, out, err = _run([*common, "--evals-limit", "1"], capsys)
+    assert code == 3
+    assert out == ""
+    assert err.startswith("BUDGET:")
+    assert "2" in err and "1" in err
+    assert not cache.exists()
+
+    code, out, err = _run([*common, "--evals-limit", "2"], capsys)
+    assert code == 0
+    assert err == ""
+    payload = json.loads(out)
+    assert [r["status"] for r in payload["results"]] == ["ok", "missing", "ok"]
+    assert payload["cost"]["evals"] == 2
+    assert _line_count(cache) == 3
+
+
+def test_cli_cache_round_trip_marks_second_run_cached_with_zero_evals(
+    synthetic_candidates: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    request_path = _write_request(tmp_path, SYNTHETIC_EXAMPLE_REQUEST)
+    cache = tmp_path / "cache.jsonl"
+    args = [
+        "--request",
+        str(request_path),
+        "--root",
+        str(synthetic_candidates),
+        "--cache",
+        str(cache),
+    ]
+
+    code, out, err = _run(args, capsys)
+    assert (code, err) == (0, "")
+    first = json.loads(out)
+    assert first["cost"]["evals"] == 3
+    assert all(r["cached"] is False for r in first["results"])
+    lines_after_first = _line_count(cache)
+    assert lines_after_first == 8
+
+    code, out, err = _run(args, capsys)
+    assert (code, err) == (0, "")
+    second = json.loads(out)
+    assert all(r["cached"] is True for r in second["results"] if r["status"] != "unsupported")
+    assert [r["cached"] for r in second["results"]].count(False) == 1
+    assert all(r["cost"]["evals"] == 0 for r in second["results"])
+    assert second["cost"]["evals"] == 0
+    assert [r["status"] for r in second["results"]] == EXPECTED_STATUSES
+    assert _line_count(cache) == lines_after_first
+    schema = json.loads(RESPONSE_SCHEMA.read_text(encoding="utf-8"))
+    jsonschema.Draft202012Validator(schema).validate(second)
