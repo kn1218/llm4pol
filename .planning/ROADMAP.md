@@ -81,7 +81,22 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Invariants D-7..D-10 and A-7 run as tests inside the check gate, added in the same change as the loader (charter §13 M1 (6))
 
 **Freezes**: candidate definition (`candidate_id = sha256(canonical_psmiles + "|" + tacticity)[:16]`), property registry (`protocol/schemas/property-registry.json`), snapshot identifier `polyomics:general_polymers@<hf_revision>` (charter §7, §13 M1)
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 02-01-PLAN.md — Tracer: environment + import contract, MANIFEST-open, fetch → load → identity → parquet → first validator sections through `python -m llm4pol.data` (wave 1)
+- [ ] 02-02-PLAN.md — Property registry triad: schema with A-7 by construction, instance with unit status, provenance (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 02-03-PLAN.md — Fetch contract, identity vectors, declared schema and loader rules; real-file identity counts (wave 2)
+- [ ] 02-04-PLAN.md — Registry loader, `schema-inventory` check step, replicate structure and noise floor; D-7, D-9 promoted (wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 02-05-PLAN.md — README numbers, Tg ladder, feasible set as D-16 input, D-8/D-10/A-7 promoted, committed report, README correction, CI evidence (wave 3)
 
 Charter §8 permits fetch/identity ∥ validate inside this phase.
 

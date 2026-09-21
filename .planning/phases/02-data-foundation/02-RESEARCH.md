@@ -660,7 +660,17 @@ assert (df.static_dielectric_const >= 1).all()  # hence ε_dc ≥ n² everywhere
 | A6 | The Phase 3 hidden table should apply `check_tc == True` (42,733 rows) rather than the README's 43,561 | F-59, Open Q2 | owner decision; the report prints both so nothing is lost either way |
 | A7 | RadonPy's produced-file pipeline rescaled Rg to Å (the fetched `Analyze` branch shows no `×10`) | F-24 | none — the unit in the *file* is settled by Table S3 and the data; this only concerns why |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+Resolved on 2026-09-22 as development defaults in `02-CONTEXT.md` § Decisions after 02-RESEARCH.md
+(owner unavailable; each stays raised for the owner as the plans state):
+
+- Q1 (303 `unknown`-tacticity twins) → **R-1**: NaN tacticity maps to `"unknown"` and stays a separate candidate in M1; the report prints both the with-twins and folded counts; raised before Phase 3.
+- Q2 (`check_tc == True` in the hidden table) → **R-2**: the report prints the README triple (43,561) and the quality-filtered triple (`check_tc`, 42,733) side by side; the choice is a Phase 3 decision; the `tg_rmse` ladder is recorded with no cut applied in M1.
+- Q3 (`r2` unit conflict) → **R-4**: registry `unit_status: unverified` for `r2` with both candidate units stated; every other unit `verified`.
+- Q4 (exit-code policy for documented differences) → **R-5**: two finding classes, `reproduce` (exact) and `documented` (stated difference with tolerance: Maxwell share 88.83 % ± 0.05, identity residual < 1e-5); any other drift exits 1.
+
+The original questions are kept below for the record.
 
 1. **The 303 `unknown`-tacticity twins (F-39).** D-03 maps NaN → `"unknown"`, so 303 repeat units get a second `candidate_id` whose rows are older-workflow runs of a polymer that also exists with `none`/`atactic`. Options: keep as locked (two candidates; report the count) or, in a later ADR, fold `unknown` into the unique known tacticity of the same canonical when exactly one exists. Recommendation: keep D-03 for M1 (total, deterministic); print the 303 and the 2; raise for the owner before Phase 3 freezes the hidden table.
 2. **Does the hidden table apply `check_tc == True`?** (F-59, A6). Recommendation: yes for Phase 3 (physical TC), documented as a registry `filters` entry with the count; the 43,561 reproduction stays as the README check.
@@ -695,7 +705,7 @@ assert (df.static_dielectric_const >= 1).all()  # hence ε_dc ≥ n² everywhere
 | Framework | pytest 9.1.1 (`[tool.pytest.ini_options] testpaths = ["tests"], addopts = "-q"`) |
 | Config file | `pyproject.toml` |
 | Quick run command | `pixi run --manifest-path env/pixi.toml python -m pytest tests/test_data_identity.py -x` (any single file; `PYTHONPATH=src` is set by the pixi task — when calling pytest directly set `PYTHONPATH=src`, otherwise `llm4pol` fails to import at collection, as observed this session) |
-| Full suite command | `pixi run --manifest-path env/pixi.toml check` (baseline today: 5/5 steps, 26 tests, 1.06 s) |
+| Full suite command | `pixi run --manifest-path env/pixi.toml check` (baseline today: 6/6 steps — ruff check, ruff format --check, mypy, import-linter, history-secret-scan, pytest — 26 tests; Phase 2 adds `schema-inventory` as the seventh) |
 
 ### What runs where
 
