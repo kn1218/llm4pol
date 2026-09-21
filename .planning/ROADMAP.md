@@ -115,12 +115,12 @@ Charter §8 permits fetch/identity ∥ validate inside this phase.
   5. Schema validation of `eval-request.json` / `eval-response.json` and the first import-linter contract run inside the check gate (charter §13 M2)
 
 **Freezes**: evaluator request/response (`protocol/schemas/eval-request.json`, `eval-response.json`), import boundary in `pyproject.toml [tool.importlinter]` enforcing A-1 and A-2 (charter §7, §13 M2)
-**Plans**: 3 plans
+**Plans**: 1/3 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — Tracer: contract dataclasses, eval-request/eval-response schemas + committed examples in the schema inventory, `PropertyTable`, `TableBackend` over the candidate parquet, `Evaluator`, `python -m llm4pol.evaluate`; status taxonomy, provenance and 100-batch order on the synthetic table (wave 1)
+- [x] 03-01-PLAN.md — Tracer: contract dataclasses, eval-request/eval-response schemas + committed examples in the schema inventory, `PropertyTable`, `TableBackend` over the candidate parquet, `Evaluator`, `python -m llm4pol.evaluate`; status taxonomy, provenance and 100-batch order on the synthetic table (wave 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -230,7 +230,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 (ch
 |-------|----------------|--------|-----------|
 | 1. Foundation | 1/1 | Complete    | 2026-09-22 |
 | 2. Data Foundation | 5/5 | Complete    | 2026-09-22 |
-| 3. Evaluator (table backend) | 0/? | Not started | - |
+| 3. Evaluator (table backend) | 1/3 | In Progress|  |
 | 4. Run Management | 0/? | Not started | - |
 | 5. Deterministic End-to-End | 0/? | Not started | - |
 | 6. LLM Loop | 0/? | Not started | - |
