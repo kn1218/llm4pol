@@ -29,10 +29,10 @@ each guard; they are prose until that milestone. D-1..D-6 apply to the PoLyInfo 
 | D-4 | Temperatures are stored in one unit throughout. The XLSX is Kelvin, the CSV is degrees Celsius | prose |
 | D-5 | Electrical values are parsed by stripping the glued unit with an anchored expression, never by a greedy number match | prose |
 | D-6 | Structural identity uses a stereo-aware key that does not merge topologically different polymers. The naive ring-closing key produces false merges | prose |
-| D-7 | Rows that differ only in `sample_id` are deduplicated before any split or metric | prose |
+| D-7 | Rows that differ only in `sample_id` are deduplicated before any split or metric | `llm4pol.data.load.build_candidates` groups by `candidate_id` before any metric (candidate table `data/processed/candidates-<rev>.parquet`, read by the validator); `tests/test_data_invariants.py::test_d7_candidate_table_dedups_replicates_before_any_metric` |
 | D-8 | Splits are grouped by polymer identity, never random at row level. Replicates would otherwise leak | prose |
 | D-9 | A reported effect smaller than the measured replicate noise floor is not reported as an effect | prose |
-| D-10 | Every reported count states the population it is drawn from. Matched-set sizes are recorded alongside every aggregate | prose |
+| D-10 | Every reported count states the population it is drawn from. Matched-set sizes are recorded alongside every aggregate | `llm4pol.data.report.CountTable` refuses a table without a `population` column; every finding line of `python -m llm4pol.data validate` names its population; `tests/test_data_invariants.py::test_d10_every_count_table_in_report_names_its_population` |
 
 ## Promotion policy
 

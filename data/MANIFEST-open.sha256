@@ -1,0 +1,6 @@
+# data/MANIFEST-open.sha256 -- PolyOmics general_polymers at one pinned Hugging Face revision (CC BY 4.0, never committed for size)
+# revision: 041e5834ea1a48682fae12dc39ccd723bcd4f771
+# source: https://huggingface.co/datasets/yhayashi1986/PolyOmics  (repo_type=dataset)
+# Format: <sha256>  <size_bytes>  <filename>   (files live under data/raw/polyomics/<revision>/)
+71e955ac1e90574ad009ccbf1238e595cf42905f3e600523ba2a6ea65c350213  196910783  general_polymers_with_sp_abbe_dynamic-dielectric.csv
+c2340252a720f7b9f56fcc368105d9e1e351c2bd75f31a364f7c2afcb5a6cc13  15532  README.md
