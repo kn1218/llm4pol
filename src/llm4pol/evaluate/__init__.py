@@ -4,7 +4,8 @@ Every property lookup goes through one contract -- ``EvalRequest`` in,
 ``EvalResponse`` out -- served by one ``Backend``. This package imports
 ``llm4pol.data`` (registry, snapshot paths) and never ``llm4pol.loop``,
 ``llm4pol.llm`` or ``llm4pol.run`` (A-1; enforced by import-linter in plan
-03-03). The package root exports the contract only: the caller imports a
+03-03). The package root exports the contract, the cache and the budget meter
+(plan 03-02) and no backend: the caller imports a
 backend as ``llm4pol.evaluate.backends.<name>`` itself, never through this
 module, so a layers contract on the loop can never be dragged through the
 package root (RESEARCH F-49).
@@ -12,6 +13,8 @@ package root (RESEARCH F-49).
 
 from __future__ import annotations
 
+from llm4pol.evaluate.budget import BudgetExceeded, BudgetMeter
+from llm4pol.evaluate.cache import CacheError, JsonlCache
 from llm4pol.evaluate.contract import (
     MISSING_REASONS,
     REQUEST_SCHEMA_PATH,
@@ -45,11 +48,15 @@ __all__ = [
     "STATUSES",
     "Backend",
     "BatchEntry",
+    "BudgetExceeded",
+    "BudgetMeter",
+    "CacheError",
     "Cost",
     "EvalRequest",
     "EvalResponse",
     "EvalResult",
     "Evaluator",
+    "JsonlCache",
     "Lookup",
     "MissingReason",
     "PropertyTable",

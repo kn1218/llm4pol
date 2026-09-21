@@ -42,6 +42,7 @@ can cite them) while every grep gate on test bodies excludes `def test_` lines.
 
 | ID | Invariant | Guard |
 |---|---|---|
+| A-3 | The budget keeps `evals` and `cpu_hours` as two separately counted currencies; no combined score exists | `llm4pol.evaluate.budget.BudgetMeter` (exactly the two fields; `charge` returns a new meter; `remaining` / `exhausted` read `evals` only); `protocol/schemas/eval-response.json` `$defs/cost` (exactly `evals` and `cpu_hours`, `additionalProperties: false`); `tests/test_evaluate_cache_budget.py::test_a3_budget_meter_keeps_evals_and_cpu_hours_as_separate_currencies`. The ledger-schema guard the charter names lands at M3 (Phase 4) |
 | A-7 | The uncorrected static permittivity column is not a registry property; `dielectric_const_dc` only (ADR-0004) | `protocol/schemas/property-registry.json` propertyNames enum; `scripts/check.py` schema-inventory step; `tests/test_data_registry.py::test_a7_static_dielectric_const_is_rejected_by_the_registry_schema`; `tests/test_data_registry.py::test_load_registry_rejects_an_instance_with_the_barred_key`; `tests/test_data_invariants.py::test_a7_validator_and_loader_never_serve_static_dielectric_const` |
 
 ## Promotion policy
