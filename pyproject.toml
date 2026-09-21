@@ -76,7 +76,13 @@ forbidden_modules = ["llm4pol.evaluate", "llm4pol.run", "llm4pol.loop", "llm4pol
 #   instances = glob (relative to repo root) matching the file(s) to validate
 #   schema    = path (relative to repo root) to the JSON Schema file
 #   required  = bool; when true, a zero-match instances glob is a failure
+# protocol/examples/ holds the committed instances of the evaluator schemas
+# (charter section 13 M2 (5)): every value in them is an invented synthetic-
+# fixture value, never a data row, and the response example is the evaluator's
+# own output on the synthetic table (tests/test_evaluate_contract.py).
 [tool.llm4polcheck]
 validated = [
     { name = "property registry v1 (DATA-03, A-7)", instances = "protocol/property-registry_v1.yaml", schema = "protocol/schemas/property-registry.json", required = true },
+    { name = "evaluator request example (EVAL-01)", instances = "protocol/examples/eval-request.example.json", schema = "protocol/schemas/eval-request.json", required = true },
+    { name = "evaluator response example (EVAL-01)", instances = "protocol/examples/eval-response.example.json", schema = "protocol/schemas/eval-response.json", required = true },
 ]

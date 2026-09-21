@@ -1,0 +1,40 @@
+{
+  "batch": [
+    {
+      "candidate_id": "7ec8cb49ff317efc",
+      "properties": [
+        "thermal_conductivity",
+        "dielectric_const_dc",
+        "tg"
+      ]
+    },
+    {
+      "candidate_id": "81b997b85ccd2069",
+      "properties": [
+        "thermal_conductivity"
+      ]
+    },
+    {
+      "candidate_id": "d24805b4ce4c381c",
+      "properties": [
+        "tg",
+        "thermal_conductivity"
+      ]
+    },
+    {
+      "candidate_id": "0123456789abcdef",
+      "properties": [
+        "thermal_conductivity"
+      ]
+    },
+    {
+      "candidate_id": "b3a635a55e1a6645",
+      "properties": [
+        "melting_point",
+        "thermal_conductivity"
+      ]
+    }
+  ],
+  "iteration": 0,
+  "run_id": "example-run"
+}

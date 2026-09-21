@@ -12,6 +12,7 @@ trusted.
 |---|---|---|
 | `prompts/` | Agent system prompts, exactly as sent, one file per agent per version | A prompt that produced a reported result is never edited in place. Bump the version and keep the old file |
 | `schemas/` | JSON Schema for every structured payload that crosses a component boundary | Every schema is paired with the prompt or component that emits it, and is validated in the test suite |
+| `examples/` | Committed example instances of each schema, one per payload | Validated by the `schema-inventory` gate step through `[tool.llm4polcheck]` in `pyproject.toml`; every value is invented, never a data row |
 
 ## Why prompts are protocol, not code
 
@@ -29,5 +30,13 @@ have no guard.
 
 ## Current contents
 
-Empty. Both subdirectories are populated by the milestone that defines the first component
-boundary, which does not exist until the charter is approved.
+- `property-registry_v1.yaml`, `property-registry_v1.provenance.yaml`,
+  `schemas/property-registry.json` -- the property registry triad (Phase 2, M1 freeze).
+- `schemas/eval-request.json`, `schemas/eval-response.json` -- the evaluator contract
+  (Phase 3, M2 freeze; charter section 7), with their committed instances
+  `examples/eval-request.example.json` and `examples/eval-response.example.json`, the
+  latter being the evaluator's own output on the synthetic test table.
+- `prompts/` is populated at M5 (Phase 6).
+
+A schema or prompt that produced a reported result is never edited in place: a new version
+is a new file, and the old file stays (charter section 4 A-5).

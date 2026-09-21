@@ -1,0 +1,166 @@
+{
+  "cost": {
+    "cpu_hours": 0.0,
+    "evals": 3
+  },
+  "iteration": 0,
+  "results": [
+    {
+      "backend": "table",
+      "cached": false,
+      "candidate_id": "7ec8cb49ff317efc",
+      "cost": {
+        "cpu_hours": 0.0,
+        "evals": 1
+      },
+      "n_replicates": 3,
+      "property": "thermal_conductivity",
+      "provenance_tier": "md_simulated",
+      "source": "polyomics:general_polymers@041e5834",
+      "spread": 0.020000000000000018,
+      "status": "ok",
+      "unit": "W/(m*K)",
+      "value": 0.32
+    },
+    {
+      "backend": "table",
+      "cached": false,
+      "candidate_id": "7ec8cb49ff317efc",
+      "cost": {
+        "cpu_hours": 0.0,
+        "evals": 0
+      },
+      "n_replicates": 3,
+      "property": "dielectric_const_dc",
+      "provenance_tier": "md_simulated",
+      "source": "polyomics:general_polymers@041e5834",
+      "spread": 0.029999999999999916,
+      "status": "ok",
+      "unit": "1",
+      "value": 2.33
+    },
+    {
+      "backend": "table",
+      "cached": false,
+      "candidate_id": "7ec8cb49ff317efc",
+      "cost": {
+        "cpu_hours": 0.0,
+        "evals": 0
+      },
+      "n_replicates": 3,
+      "property": "tg",
+      "provenance_tier": "md_simulated",
+      "source": "polyomics:general_polymers@041e5834",
+      "spread": 10.0,
+      "status": "ok",
+      "unit": "K",
+      "value": 260.0
+    },
+    {
+      "backend": "table",
+      "cached": false,
+      "candidate_id": "81b997b85ccd2069",
+      "cost": {
+        "cpu_hours": 0.0,
+        "evals": 0
+      },
+      "n_replicates": null,
+      "property": "thermal_conductivity",
+      "provenance_tier": "md_simulated",
+      "reason": "value_absent",
+      "source": "polyomics:general_polymers@041e5834",
+      "spread": null,
+      "status": "missing",
+      "unit": null,
+      "value": null
+    },
+    {
+      "backend": "table",
+      "cached": false,
+      "candidate_id": "d24805b4ce4c381c",
+      "cost": {
+        "cpu_hours": 0.0,
+        "evals": 0
+      },
+      "n_replicates": null,
+      "property": "tg",
+      "provenance_tier": "md_simulated",
+      "reason": "value_absent",
+      "source": "polyomics:general_polymers@041e5834",
+      "spread": null,
+      "status": "missing",
+      "unit": null,
+      "value": null
+    },
+    {
+      "backend": "table",
+      "cached": false,
+      "candidate_id": "d24805b4ce4c381c",
+      "cost": {
+        "cpu_hours": 0.0,
+        "evals": 1
+      },
+      "n_replicates": 1,
+      "property": "thermal_conductivity",
+      "provenance_tier": "md_simulated",
+      "source": "polyomics:general_polymers@041e5834",
+      "spread": null,
+      "status": "ok",
+      "unit": "W/(m*K)",
+      "value": 0.22
+    },
+    {
+      "backend": "table",
+      "cached": false,
+      "candidate_id": "0123456789abcdef",
+      "cost": {
+        "cpu_hours": 0.0,
+        "evals": 0
+      },
+      "n_replicates": null,
+      "property": "thermal_conductivity",
+      "provenance_tier": "md_simulated",
+      "reason": "candidate_unknown",
+      "source": "polyomics:general_polymers@041e5834",
+      "spread": null,
+      "status": "missing",
+      "unit": null,
+      "value": null
+    },
+    {
+      "backend": "table",
+      "cached": false,
+      "candidate_id": "b3a635a55e1a6645",
+      "cost": {
+        "cpu_hours": 0.0,
+        "evals": 0
+      },
+      "n_replicates": null,
+      "property": "melting_point",
+      "provenance_tier": "md_simulated",
+      "source": "polyomics:general_polymers@041e5834",
+      "spread": null,
+      "status": "unsupported",
+      "unit": null,
+      "value": null
+    },
+    {
+      "backend": "table",
+      "cached": false,
+      "candidate_id": "b3a635a55e1a6645",
+      "cost": {
+        "cpu_hours": 0.0,
+        "evals": 1
+      },
+      "n_replicates": 2,
+      "property": "thermal_conductivity",
+      "provenance_tier": "md_simulated",
+      "source": "polyomics:general_polymers@041e5834",
+      "spread": 0.007071067811865481,
+      "status": "ok",
+      "unit": "W/(m*K)",
+      "value": 0.155
+    }
+  ],
+  "run_id": "example-run"
+}
