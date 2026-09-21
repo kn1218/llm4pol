@@ -3,18 +3,18 @@ gsd_state_version: "1.0"
 milestone: v1.0
 current_phase: 3
 current_phase_name: Evaluator (table backend)
-current_plan: 2
+current_plan: 3
 status: executing
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-09-21T21:46:07.639Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-09-21T22:00:15.141Z"
 last_activity: 2026-09-22
 last_activity_desc: Phase 2 complete, transitioned to Phase 03
-state_head: c0b06a71163159d52e4a71249d328e73820884bc
+state_head: 6b183cabff79f8508142d0ed1f624a442fd5d366
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 9
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Charter: docs/MASTER-PLAN.md v1.0 (approved 2026-09-21, ADR-0005) — highest so
 ## Current Position
 
 Phase: 3 (Evaluator (table backend)) — READY TO EXECUTE
-Current Plan: 2
+Current Plan: 3
 Total Plans in Phase: 3
 Status: Ready to execute
 Last activity: 2026-09-22 — Phase 2 complete, transitioned to Phase 03
@@ -69,6 +69,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02 P04 | 11 min | 2 tasks | 10 files |
 | Phase 02 P05 | 45min | 4 tasks | 12 files |
 | Phase 03 P01 | 16 min | 3 tasks | 19 files |
+| Phase 03 P02 | 9min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,7 @@ Recent decisions affecting current work:
 - [Phase 2]: 02-05: DATA-09 'filtered by tg_rmse' vs R-2 'no cut' flagged for the owner; ladder recorded at every rung, nothing resolved
 - [Phase 03]: 03-01: ValueError kept at the from_json boundary via one _wrong_type helper (ruff 0.16 TRY004 answered structurally, no noqa); ruff isort known-first-party = [llm4pol] so RED-state submodule imports stay stably ordered through GREEN
 - [Phase 03]: 03-01: the evaluator applies no population filter (D-03) and charges evals once per distinct candidate per request on its first ok result (R-2); the committed eval-response example is the evaluator's own output on the synthetic table
+- [Phase 3]: 03-02: unsupported is decided before a cache key exists (never reaches the cache); a cache hit is dataclasses.replace(hit, cached=True, cost=Cost(0, 0.0)); the CLI meter is per invocation, cross-run spend belongs to the Phase 4 ledger
 
 ### Pending Todos
 
@@ -116,6 +118,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-21T21:45:58.230Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-09-21T22:00:15.080Z
+Stopped at: Completed 03-02-PLAN.md
 Resume file: None

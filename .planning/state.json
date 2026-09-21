@@ -16,7 +16,7 @@
     {
       "number": "3",
       "name": "Evaluator (table backend)",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "number": "4",
@@ -49,5 +49,5 @@
     "label": "Advance to the next step",
     "reason": "Phase 3 of 8 · executing"
   },
-  "updated_at": "2026-09-21T21:45:40.241Z"
+  "updated_at": "2026-09-21T22:00:13.206Z"
 }

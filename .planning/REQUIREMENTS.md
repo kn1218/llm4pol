@@ -30,9 +30,9 @@ subordinate to the charter (ADR-0002).
 ### Evaluator (charter §13 M2, §7, §4 A-1..A-3)
 
 - [x] **EVAL-01**: Evaluator request and response payloads validate against `protocol/schemas/eval-request.json` and `eval-response.json`, and the test suite loads those schemas
-- [ ] **EVAL-02**: Each (candidate, property) response carries exactly one status in `{ok, unsupported, missing, error}`; `unsupported` (not in registry) and `missing` (row present, value absent) consume no budget; `error` is retryable
+- [x] **EVAL-02**: Each (candidate, property) response carries exactly one status in `{ok, unsupported, missing, error}`; `unsupported` (not in registry) and `missing` (row present, value absent) consume no budget; `error` is retryable
 - [x] **EVAL-03**: Every response carries `backend`, `source`, `provenance_tier`, `n_replicates`, `spread`, `unit` and `cost {evals, cpu_hours}`
-- [ ] **EVAL-04**: The cache is keyed by `(candidate_id, property, backend, source)`; a cache hit leaves `evals` unchanged
+- [x] **EVAL-04**: The cache is keyed by `(candidate_id, property, backend, source)`; a cache hit leaves `evals` unchanged
 - [ ] **EVAL-05**: A batch request of 100 entries returns responses in request order with matching count
 - [ ] **EVAL-06**: import-linter contracts forbid `llm4pol.loop` → `llm4pol.evaluate.backends.radonpy`, `llm4pol.evaluate` → `llm4pol.loop`/`llm4pol.llm`, and restrict `llm4pol.llm` to `llm4pol.loop.agents` (A-1, A-2)
 
@@ -121,9 +121,9 @@ Which phases cover which requirements. Phase N is charter milestone M(N-1); see 
 | DATA-09 | Phase 2 (Data Foundation) | Complete |
 | DATA-10 | Phase 2 (Data Foundation) | Complete |
 | EVAL-01 | Phase 3 (Evaluator (table backend)) | Complete |
-| EVAL-02 | Phase 3 (Evaluator (table backend)) | Pending |
+| EVAL-02 | Phase 3 (Evaluator (table backend)) | Complete |
 | EVAL-03 | Phase 3 (Evaluator (table backend)) | Complete |
-| EVAL-04 | Phase 3 (Evaluator (table backend)) | Pending |
+| EVAL-04 | Phase 3 (Evaluator (table backend)) | Complete |
 | EVAL-05 | Phase 3 (Evaluator (table backend)) | Pending |
 | EVAL-06 | Phase 3 (Evaluator (table backend)) | Pending |
 | RUN-01 | Phase 4 (Run Management) | Pending |
