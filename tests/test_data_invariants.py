@@ -21,7 +21,7 @@ import pandas as pd
 import pytest
 
 from conftest import REPO_ROOT
-from llm4pol.data import filters, load, registry, replicates, report, validate
+from llm4pol.data import filters, load, registry, replicates, report, snapshot, validate
 from llm4pol.data.load import LoadResult
 from llm4pol.data.schema import PROPERTY_COLUMNS
 from test_data_cli import SYNTHETIC_EXPECTED
@@ -272,3 +272,130 @@ def test_real_replicate_structure_and_noise_floor_match_research(
             expected_value,
             status,
         ), (finding_id, findings[finding_id])
+
+
+# --- Plan 02-05: the README numbers (D-07, R-1, R-3, R-5, DATA-06) -------------------
+
+
+def _source_rows(synthetic_root: Path) -> Any:
+    return load.read_source(snapshot.csv_path(synthetic_root))
+
+
+def test_readme_ladder_counts_on_synthetic(synthetic_root: Path) -> None:
+    """F-08: the README triple is a ladder of named steps on all source rows."""
+    source = _source_rows(synthetic_root)
+    rows, _ = _loaded(synthetic_root)
+    reg = registry.load_registry()
+
+    ladder = filters.readme_triple_ladder(source, reg)
+    assert [label for label, _ in ladder] == [
+        "all rows",
+        "thermal_conductivity non-null",
+        "∧ dielectric_const_dc non-null",
+        "∧ dielectric_const_dc in [1.0, 20.0]",
+        "∧ tg in [100.0, 900.0] K",
+    ]
+    assert [count for _, count in ladder] == [14, 13, 13, 12, 10]
+
+    triple = filters.readme_triple_mask(rows, reg)
+    assert int(triple.sum()) == 8
+    assert int((triple & filters.check_tc_mask(rows, reg)).sum()) == 8
+
+    # F-61: filter rows then median per candidate is the order the report uses.
+    assert len(filters.candidate_level_triple(rows, reg)) == 5
+    assert len(filters.candidate_level_triple(rows, reg, order="median_then_filter")) == 5
+    with pytest.raises(ValueError, match="order"):
+        filters.candidate_level_triple(rows, reg, order="sideways")
+
+
+def test_alternative_eps_filters_are_printed_not_used(synthetic_root: Path) -> None:
+    """F-08: the naive eps_dc filters are printed beside the ladder, never applied."""
+    source = _source_rows(synthetic_root)
+    reg = registry.load_registry()
+    alternatives = filters.alternative_eps_filters(source, reg)
+    assert [label for label, _ in alternatives] == [
+        "dielectric_const_dc non-null only",
+        "dielectric_const_dc <= 10",
+        "dielectric_const_dc <= 50",
+        "dielectric_const_dc <= 100",
+    ]
+    assert [count for _, count in alternatives] == [11, 10, 11, 11]
+
+
+@pytest.mark.parametrize("population", ["synthetic", "real"])
+def test_maxwell_identity_holds_on_dielectric_rows(
+    population: str, synthetic_root: Path, request: pytest.FixtureRequest
+) -> None:
+    """F-14 / F-15: eps_dc = static - 1 + n^2 and static >= 1, so eps_dc >= n^2 is algebra."""
+    reg = registry.load_registry()
+    if population == "synthetic":
+        rows, _ = _loaded(synthetic_root)
+        residual_bound, static_floor = 1e-9, 1.05
+    else:
+        result: LoadResult = request.getfixturevalue("real_load")
+        rows = pd.read_parquet(result.rows_parquet)
+        residual_bound, static_floor = 1e-5, 1.0
+    residual = filters.dielectric_identity_residual(rows)
+    assert float(residual.max()) < residual_bound
+    assert filters.static_minimum(rows) >= static_floor
+    if population == "real":
+        assert filters.static_minimum(rows) == pytest.approx(1.00016, abs=1e-4)
+    everywhere = pd.Series(True, index=rows.index)
+    assert filters.dc_maxwell_violations(rows, everywhere) == 0
+    if population == "synthetic":
+        source = _source_rows(synthetic_root)
+        triple = filters.readme_triple_mask(source, reg)
+        violations, size, pct = filters.static_maxwell_violation_share(source, triple)
+        assert (violations, size, pct) == (10, 10, 100.0)
+
+
+def test_multi_tacticity_counts_on_synthetic(synthetic_root: Path) -> None:
+    """F-39 / F-48: NaN tacticity is `unknown`, never a dropped group key (R-1 prints both)."""
+    source = _source_rows(synthetic_root)
+    rows, _ = _loaded(synthetic_root)
+    by_smiles = filters.multi_tacticity_counts(source)
+    assert by_smiles.with_unknown == 2
+    assert by_smiles.without_unknown == 1
+    assert by_smiles.unknown_twins == 1
+    by_canonical = filters.multi_tacticity_counts_canonical(rows)
+    assert by_canonical.with_unknown == 2
+    assert by_canonical.without_unknown == 1
+    assert filters.raw_string_merges(source, rows) == 1
+
+
+def test_card_count_73045_matches_no_column_on_synthetic(synthetic_root: Path) -> None:
+    """F-19: no column reproduces the dataset card's 73,045; the candidates are printed."""
+    source = _source_rows(synthetic_root)
+    rows, _ = _loaded(synthetic_root)
+    counts = filters.card_count_candidates(source, rows)
+    assert counts == {
+        "unique smiles_list": 10,
+        "unique canonical_psmiles (in scope)": 7,
+        "unique UUID": 14,
+        "source rows": 14,
+    }
+    assert filters.CARD_COUNT not in counts.values()
+    assert filters.CARD_COUNT == 73045
+
+
+def test_findings_documented_class_uses_tolerance_and_reproduce_is_exact() -> None:
+    """R-5: `reproduce` is exact; `documented` pins the observed value within a tolerance."""
+    population = "x"
+    reproduce = report.Expected("reproduce", 43561)
+    assert report.evaluate_finding("a", reproduce, 43561, population).status == "reproduced"
+    assert report.evaluate_finding("a", reproduce, 43560, population).status == "FAILED"
+
+    rounded = report.Expected("documented", 88.9, tolerance=0.05, note="README rounds")
+    assert report.evaluate_finding("b", rounded, 88.83, population).status == "FAILED"
+    pinned = report.Expected("documented", 88.83, tolerance=0.05, note="README states 88.9 %")
+    assert report.evaluate_finding("b", pinned, 88.83, population).status == "documented"
+    assert report.evaluate_finding("b", pinned, 88.75, population).status == "FAILED"
+
+    text = report.Expected("documented", "not reproducible from any column")
+    assert report.evaluate_finding("c", text, "no column equals 73,045", population).status == (
+        "documented"
+    )
+    missing = report.evaluate_finding("c", text, None, population)
+    assert missing.status == "MISSING"
+    assert report.exit_code([missing]) == 1
+    assert report.exit_code([report.evaluate_finding("a", reproduce, 43561, population)]) == 0

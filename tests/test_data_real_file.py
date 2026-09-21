@@ -103,3 +103,123 @@ def test_real_candidates_have_unique_ids_and_sizes_sum_to_in_scope_rows(
     assert int(candidates["n_rows"].sum()) == 95332
     assert int(candidates["n_rows"].max()) == 17
     assert int((candidates["n_rows"] >= 2).sum()) == 12983
+
+
+# --------------------------------------------------------------------------
+# Plan 02-05: the README numbers on the pinned file (F-08..F-19, F-38, F-39, F-59, F-61)
+# --------------------------------------------------------------------------
+
+_FINDING_HEADER = ["finding", "population", "expected", "observed", "class", "status"]
+
+
+def _findings_table(text: str) -> dict[str, tuple[str, str, str, str, str]]:
+    """The `## Findings` table: id -> (population, expected, observed, class, status)."""
+    lines = text.splitlines()
+    start = lines.index("## Findings")
+    header = [cell.strip() for cell in lines[start + 2].strip().strip("|").split("|")]
+    assert header == _FINDING_HEADER, header
+    found: dict[str, tuple[str, str, str, str, str]] = {}
+    for line in lines[start + 4 :]:
+        if not line.startswith("|"):
+            break
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        found[cells[0]] = (cells[1], cells[2], cells[3], cells[4], cells[5])
+    return found
+
+
+def _run_validator(real_load: load.LoadResult, tmp_path: Path) -> tuple[int, str]:
+    report_path = tmp_path / "report.md"
+    code = validate.run(REPO_ROOT, processed_dir=real_load.processed_dir, report_path=report_path)
+    return code, report_path.read_text(encoding="utf-8")
+
+
+REPRODUCED_README_NUMBERS: dict[str, str] = {
+    "readme_triple_all_rows": "43,561",
+    "readme_triple_in_scope": "43,560",
+    "triple_check_tc_all_rows": "42,733",
+    "candidate_triple_filter_then_median": "40,212",
+    "eps_alternative_non_null_only": "45,821",
+    "eps_alternative_le_10": "42,186",
+    "eps_alternative_le_50": "45,134",
+    "eps_alternative_le_100": "45,704",
+    "coverage_thermal_conductivity": "81,405",
+    "coverage_dielectric_const_dc": "93,488",
+    "coverage_tg": "56,064",
+    "coverage_fractional_free_volume": "87,849",
+    "coverage_sp_ced": "71,848",
+    "coverage_refractive_index": "93,488",
+    "coverage_density": "95,335",
+    "coverage_Rg": "95,335",
+    "tacticity_none": "48,790",
+    "tacticity_atactic": "45,032",
+    "tacticity_isotactic": "951",
+    "tacticity_syndiotactic": "8",
+    "tacticity_unknown": "554",
+    "multi_tacticity_smiles_with_unknown": "303",
+    "multi_tacticity_smiles_without_unknown": "2",
+    "raw_string_merges": "5",
+    "eps_outside_physical_range": "5,123",
+    "dc_maxwell_violations": "0",
+    "check_tc_true": "79,927",
+    "check_tc_false": "15,376",
+}
+
+# documented findings pin the observed research value (R-5); the README's figure is a note.
+DOCUMENTED_README_NUMBERS: dict[str, str] = {
+    "static_maxwell_violation_pct_triple": "88.83",
+    "static_maxwell_violation_pct_all": "84.30",
+    "dc_identity_max_residual": "5.7e-07",
+    "static_minimum": "1.00016",
+    "spearman_tc_eps": "0.170",
+    "spearman_tc_tg": "0.010",
+    "spearman_eps_tg": "0.199",
+    "spearman_sp_ced_tc": "0.355",
+    "spearman_ffv_tc": "-0.069",
+    "spearman_rg_tc": "0.304",
+    "spearman_density_tc": "-0.270",
+    "spearman_static_vs_n2_triple": "-0.144",
+    "spearman_eps_vs_n2_triple": "0.476",
+    "readme_window_rows": "1,140",
+    "readme_window_pct": "2.62",
+    "multi_tacticity_canonical_with_unknown": "303",
+    "card_count_73045": "not reproducible from any column",
+}
+
+TRIPLE_ROWS_POPULATION = "README-triple rows (all source rows)"
+
+
+def test_real_readme_numbers_reproduce_or_are_documented(
+    real_load: load.LoadResult, tmp_path: Path
+) -> None:
+    code, text = _run_validator(real_load, tmp_path)
+    findings = _findings_table(text)
+    assert code == 0, [k for k, v in findings.items() if v[4] in ("FAILED", "MISSING")]
+    for finding_id, expected in REPRODUCED_README_NUMBERS.items():
+        assert finding_id in findings, finding_id
+        _, expected_cell, observed_cell, cls, status = findings[finding_id]
+        assert (expected_cell, observed_cell, cls, status) == (
+            expected,
+            expected,
+            "reproduce",
+            "reproduced",
+        ), (finding_id, findings[finding_id])
+    for finding_id, expected in DOCUMENTED_README_NUMBERS.items():
+        assert finding_id in findings, finding_id
+        _, expected_cell, _, cls, status = findings[finding_id]
+        assert (expected_cell, cls, status) == (expected, "documented", "documented"), (
+            finding_id,
+            findings[finding_id],
+        )
+    for finding_id in (
+        "spearman_tc_eps",
+        "spearman_tc_tg",
+        "spearman_eps_tg",
+        "spearman_sp_ced_tc",
+        "spearman_ffv_tc",
+        "spearman_rg_tc",
+        "spearman_density_tc",
+    ):
+        assert findings[finding_id][0] == TRIPLE_ROWS_POPULATION, finding_id
+    assert "The dataset card's 73,045" in text
+    assert "the corrected static dielectric constant" in text
+    assert "| ∧ check_tc == True (protocol filter, not in the README) |" in text
