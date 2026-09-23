@@ -1,97 +1,170 @@
 # Phase 4: Run Management — Context
 
-**Gathered:** 2026-09-22 (draft, orchestrator; owner to review before planning)
-**Source:** charter `docs/MASTER-PLAN.md` §4 (A-3, A-6), §7 (run record, problem spec), §10, §12, §13 M3;
-Phase 3's evaluator (`llm4pol.evaluate.contract.EvalRequest/EvalResponse/Cost`, `JsonlCache`,
-`BudgetMeter`); the CALF20 precedent (ADR-0008 append-only JSONL + rebuildable index, ULID +
-`row_version` canonical rows, `calculation_key` vs `run_id`/`attempt_id`, advisory `table_lock`).
-**Status:** Draft — needs the owner's answer to the two open items below, then `/gsd-plan-phase 4`.
+**Gathered:** 2026-09-22, **rewritten 2026-09-23**
+**Status:** Draft — needs the owner's answers to `<open_for_owner>` before planning.
+
+**Why it was rewritten.** The first draft derived this phase from `CALF20_DiscoveryLoop`'s ledger
+spine (ULID, `row_version`, fourteen tables, transitive invalidation, a hash chain). That was the
+wrong precedent: CALF20 is a physisorption instrument with a much larger record, and the owner's
+instruction was to look at how **LLM4MOF** built its project. This draft is derived from the two
+references that actually apply, plus the charter, which outranks both.
+
+**Sources, in precedence order**
+
+1. `docs/MASTER-PLAN.md` §4 (A-3, A-6), §7 (run record, problem spec), §10, §13 M3 — the authority.
+2. **LLM4MOF** (`LLM2POR_Core_20260319`), read directly at
+   `C:/Users/molsim/Dropbox/Antigravity/LLM2POR_Core_20260319/experiments/` — the scientific parent's
+   actual run artifacts.
+3. **LLM4MO** (`C:/Users/molsim/Desktop/LLM4MO`) — the owner's **sibling port** of the same parent to
+   oxide semiconductors, started the same week. `src/llm4mo/{contracts,database_run,database_evaluator,
+   database_metrics}.py` are the twin of LLM4POL's Phases 3–4 and are already Phase-1-verified there.
+4. `llm4pol.evaluate` as built in Phase 3 (`EvalRequest/EvalResult/EvalResponse/Cost`, `JsonlCache`,
+   `BudgetMeter`).
+
+`CALF20_DiscoveryLoop` is **not** a source for this phase. Its contribution to LLM4POL is confined to
+three build-plane items already landed in Phases 1–2 (`history_secret_scan.py`, the
+`schema-inventory` check step, the protocol triad).
 
 <domain>
 ## Phase Boundary
 
-Phase 4 delivers charter M3: a campaign leaves an append-only run record under
-`experiments/<run-id>/` that can be resumed without duplicate events and replayed to a byte-
-identical `results.csv`; `usage.json` totals equal the ledger sums in two currencies. It freezes
-the run record format, the problem spec schema, A-3 and A-6 as ledger tests. It does **not** build
-the selector, beams, tags or feedback (Phase 5) — Phase 4's tests drive the ledger with a stub
-"selection" that is a plain list of candidate ids, and its `results.csv` reducer is exercised on
-recorded events only.
+Charter M3: a campaign leaves a run record under `experiments/<run-id>/` that can be **resumed**
+without duplicate events and **replayed** to a byte-identical `results.csv`; `usage.json` totals equal
+the ledger sums in two currencies. Freezes the run record format, the problem spec schema, A-3 and A-6.
+
+Not in scope: selector, beams, tags, feedback text, agents (Phases 5–6). Phase 4's tests drive the
+ledger with a stub selection (a plain list of candidate ids) and exercise the reducer on recorded
+events only.
 </domain>
 
-<decisions>
-## Implementation Decisions (proposed defaults)
+<reference_facts>
+## What the two references actually do (read, not recalled)
 
-### D-01 Run identity
-`run_id = <UTC YYYYMMDDTHHMMSSZ>-<8 hex>` (charter §7); the hex is from `secrets.token_hex(4)`.
-`experiments/<run_id>/` is created atomically (mkdir fails if it exists — a rerun is a new id, A-6).
-`meta.json` written first, once, with: `problem_spec` (validated), `code_git_sha` (`git rev-parse
-HEAD`, plus `dirty: bool`), `prompt_versions` (`{}` until Phase 6), `provider`/`model` (null until
-Phase 6), `seed`, `snapshot` (`polyomics:general_polymers@041e5834`), `registry_version`
-(`property-registry_v1`), `created_at`.
+### LLM4MOF — `experiments/<run_id>/` (verified 2026-09-23)
+
+```
+run_config.json      {run_id, start_time, config{mode, target_metric, num_iterations,
+                      openai_model, openai_api_key: "***REDACTED***", temperature, seed,
+                      agent1_prompt, agent2_prompt, experiment_name, experiment_group,
+                      sample_n, pattern_top_n, max_retries, request_timeout}}
+iteration_00N.json   {iteration, timestamp, data{hypothesis_raw, constraints, n_candidates,
+                      feedback{iteration, beams[4], diagnosis, constraints_used},
+                      metrics{n_candidates, n_total, reduction_ratio,
+                              percentile_of_candidate_median,
+                              candidate_stats{...}, full_db_stats{...},
+                              agent1_tokens, agent2_tokens, agent2_corrections[]}}}
+run_summary.json     {run_id, start_time, end_time, summary{n_iterations,
+                      percentile_trend[], candidate_count_trend[], improving,
+                      best/worst_iteration, best/worst_percentile, query, mode,
+                      target_metric, completed_iterations}}
+```
+
+Five facts worth carrying:
+
+- **One immutable file per iteration**, not one rewritten file. Append-only is a filesystem property.
+- **The API key is `***REDACTED***` in the committed record.** Matches R-3 here.
+- **`candidate_stats` and `full_db_stats` are both recorded per iteration**, and the headline metric
+  is `percentile_of_candidate_median` — the population denominator travels with the number.
+- **Token counts live in the per-iteration metrics**, not in a separate usage file.
+- **No hash chain, no ULID, no `row_version`, no SQLite.** All of that was CALF20.
+
+### LLM4MO — the sibling port (verified 2026-09-23, `contracts.py` read in full)
+
+- `run | resume | replay` as three CLI commands over one ledger — the same three verbs charter §13 M3
+  names.
+- The ledger carries a **header** (`problem` + `provenance{partition, seed, engineering_smoke,
+  policy}`); `resume`/`replay` read the header rather than re-taking CLI arguments, so a resumed run
+  cannot silently change its own problem.
+- **`run` refuses to touch an existing ledger** (`"Run ledger already exists; use replay"`) — A-6 as a
+  precondition, not a test.
+- **Replay is the source of truth**: `evaluator.replay()` returns the event pairs, and the run asserts
+  the policy's expected sequence matches the replayed prefix (`"Random policy sequence mismatch"`)
+  before continuing. Determinism is checked, not assumed.
+- `Observation` carries `status ∈ {ok, missing, invalid, budget_exhausted}`, `cached`, `charged`,
+  `spent`, `artifact_sha256`, `evidence_class`, `reference`, and a validator enforcing
+  **`cached ⊕ charged`** ("Cache cannot consume a new query") and status ⟺ evidence agreement.
+- The run result ends with `result_sha256 = sha256(canonical(result))`.
+- Errors print one generic message and return 1 — no internal detail leaks.
+</reference_facts>
+
+<decisions>
+## Implementation Decisions (proposed; each cites its source)
+
+### D-01 Run identity and meta (charter §7)
+`run_id = <UTC YYYYMMDDTHHMMSSZ>-<8 hex>`. `experiments/<run_id>/` is created with `mkdir(exist_ok=
+False)`; an existing directory is refused with the twin's message shape ("run exists; use replay").
+`meta.json` is written once and holds the charter's fields — problem spec, `code_git_sha` (+`dirty`),
+`prompt_versions` ({} until Phase 6), `provider`/`model` (null until Phase 6), `seed`, `snapshot`
+(`polyomics:general_polymers@041e5834`), `registry_version`, `created_at` — and, from LLM4MOF, any
+secret-shaped config value is written as `***REDACTED***`, asserted by a test.
 
 ### D-02 Ledger events (`ledger.jsonl`, `protocol/schemas/ledger-event.json`)
-One JSON object per line, canonical (`sort_keys`, `separators=(",", ":")`, `allow_nan=False`, LF).
-Common envelope: `{seq, ts, run_id, iteration, event, payload, prev_hash, hash}` where `seq` is a
-monotonically increasing integer, `prev_hash` is the previous line's `hash` (`"0"*64` for the
-first) and `hash = sha256(canonical(line without hash))` — a tamper-evident chain that makes
-"append-only" testable (any rewritten line breaks the chain; precedent SC2 byte-prefix test also
-applies). Event kinds for M3: `run_opened`, `iteration_opened`, `selection` (beam, candidate ids),
-`evaluation` (the full `EvalResponse` or its results subset), `no_match` (beam, query id),
-`iteration_closed` (per-beam n and summary values), `run_closed`. Phase 5/6 add `hypothesis`,
-`query`, `feedback`, `llm_call` without changing the envelope.
+One canonical JSON object per line (`sort_keys`, `separators=(",",":")`, `allow_nan=False`, LF).
+Envelope `{seq, ts, run_id, iteration, event, payload}`. Event kinds for M3: `run_opened`,
+`iteration_opened`, `selection`, `evaluation`, `no_match`, `iteration_closed`, `run_closed`.
+Phases 5–6 add `hypothesis`, `query`, `feedback`, `llm_call` without changing the envelope.
+**No hash chain** — neither reference uses one (see D-03 for what replaces it).
 
-### D-03 Resume
-`resume(run_id)` replays the ledger, verifies the hash chain, finds the last `iteration_closed`,
-and continues from the next iteration. Idempotency key `(run_id, iteration, beam)` for `selection`
-and `evaluation` events: a duplicate is refused before append (R-3 of charter §7). A run whose last
-event is not `iteration_closed` is resumed by discarding nothing: the partial iteration's events are
-kept and the iteration is re-run under a new `iteration_opened` with `attempt` incremented — the
-reducer uses the last completed attempt per iteration (precedent: `run_id`/`attempt_id`).
+### D-03 Integrity by replay, not by chaining (from LLM4MO)
+Append-only is enforced three ways, all proven in the sibling project:
+1. `run` refuses an existing run directory; a rerun gets a new id (A-6 as a precondition).
+2. A byte-prefix test: after every append, the previous file content is a prefix of the new content.
+3. **Replay-sequence match**: `resume` replays the ledger and asserts the deterministic selector's
+   expected prefix equals what was recorded, refusing to continue on mismatch. This catches a doctored
+   or truncated ledger at the only moment it matters — when the run is continued or a result is
+   re-derived — without making a repaired ledger unusable.
+`replay` ends by printing `result_sha256` over the canonical reduced result, so a published number
+has a hash anyone can recompute from the committed record.
 
-### D-04 Usage and replay
-`usage.json = {evals, cpu_hours, tokens, usd}`; `evals`/`cpu_hours` are sums of `evaluation`
-event costs (A-3: two separate numbers, never a combined score); `tokens`/`usd` are 0 until Phase
-6. `replay(run_id)` regenerates `results.csv` from `ledger.jsonl` alone; a test writes a run,
-copies `results.csv`, deletes it, replays, and asserts byte-identity. `results.csv` columns:
-`iteration, beam, n, median_tc, feasible_frac, pct_of_table, hits_top10, hits_top1` — for M3 the
-`pct_of_table` / `hits_*` columns are computed against the candidate table's README-triple
-population by `llm4pol.data.filters` (percentile of the beam median among candidate medians),
-so the format is exercised before Phase 5 fills the beams for real.
+### D-04 Usage, metrics and replay output
+`usage.json = {evals, cpu_hours, tokens, usd}` — `evals`/`cpu_hours` summed from `evaluation` event
+costs, never combined (A-3); `tokens`/`usd` 0 until Phase 6. From LLM4MOF, **every per-iteration
+metric row carries its population**: `results.csv` columns `iteration, beam, n, n_population,
+median_tc, feasible_frac, pct_of_population, hits_top10, hits_top1`, and `run_summary.json` carries
+`percentile_trend[]` and `candidate_count_trend[]`. `replay` regenerates `results.csv` from
+`ledger.jsonl` alone, byte-identical.
 
 ### D-05 Problem spec (`protocol/schemas/problem-spec.json`)
-Exactly charter §7; `form` enum `["constrained_single"]` now with `"pareto"` reserved (D-16
-gated); constraints reference registry keys only (schema `enum` from the registry keys, validated
-in the gate inventory with a committed example `protocol/examples/problem-spec.example.json`).
+Charter §7 exactly, with the twin's strictness: `extra` forbidden, `schema_version` pinned,
+`budget > 0`, constraints referencing registry keys only, `form` enum `["constrained_single"]` with
+`"pareto"` reserved (D-16 gated). A committed example goes in the `schema-inventory` gate step.
 
 ### D-06 Package boundary
-`llm4pol.run` may import `llm4pol.evaluate` (contract types) and `llm4pol.data` (filters for the
-reducer); forbidden from `llm4pol.loop`, `llm4pol.llm`. Add the contract with the package.
+`llm4pol.run` may import `llm4pol.evaluate` and `llm4pol.data`; forbidden from `llm4pol.loop` and
+`llm4pol.llm`. Contract added with the package.
 
 ### D-07 CLI
-`python -m llm4pol.run open --spec <json> [--seed N]`, `… resume <run_id>`, `… replay <run_id>`,
-`… usage <run_id>`; exit 0 / 2 (schema, IO) / 4 (chain broken or duplicate event).
-
-### Claude's Discretion
-- Whether to keep an in-memory `seq`/hash cursor object or recompute on every append (the run is
-  single-writer; a sidecar advisory lock as in the precedent is optional).
+`python -m llm4pol.run {run|resume|replay|usage} …` — the twin's verb set. Exit 0 / 2 (schema, IO) /
+4 (sequence mismatch or duplicate event). Errors print one generic message (twin's convention) with
+detail on stderr only.
 </decisions>
 
 <open_for_owner>
-## Two items for the owner before planning
-1. **Hash-chained ledger (D-02)** vs the charter's plain "append-only JSONL": the chain is the
-   cheapest way to make A-6 a test rather than prose. Accept, or keep plain JSONL with the
-   byte-prefix test only?
-2. **Experiments directory policy:** `experiments/` is git-ignored except its README (ADR-0001
-   wording predates PolyOmics). Keep ignored (recommended; large, append-only), with reduced
-   `results.csv` copied into `docs/` only when a figure cites it.
+## Decisions for the owner
+
+The rewrite surfaced that **LLM4POL and its sibling LLM4MO diverge on four choices** that I made here
+without knowing the twin had already gone the other way. Two are Phase 4's to settle; two are already
+built into Phase 3 and would cost rework.
+
+| # | Question | LLM4MO (twin) | LLM4POL today | Cost to switch |
+|---|---|---|---|---|
+| A | Ledger storage | SQLite, header row + events | JSONL (charter §7) | Phase 4 not built — free now |
+| B | Data partitions | `development / validation / test`, in the source export | none (charter §8: DB mode has no training set) | Phase 4–5; the argument differs per project |
+| C | Contract types | pydantic `BaseModel` (frozen, extra=forbid, strict) | frozen dataclasses + JSON Schema | Phase 3 built; ~1 plan of rework |
+| D | Public/private data split | `public/` and `priv*/` jsonl directories | one table; blindness by payload test | Phase 2–3 built; ~2 plans |
+
+Plus the Phase 4 item that survives the rewrite:
+
+| # | Question |
+|---|---|
+| E | `experiments/` git policy — ADR-0001's stated licence reason no longer applies to the PolyOmics layer |
 </open_for_owner>
 
 <deferred>
-- Selector, beams, tag vocabulary, feedback, memory → Phase 5/6.
-- SQLite index over the ledger → only if replay becomes slow (precedent ADR-0008).
+- Selector, beams, tag vocabulary, feedback, memory → Phases 5–6.
+- `evidence_class` / `reference` provenance fields (twin) → revisit at M8 when a second source exists.
 </deferred>
 
 ---
 
-*Phase: 04-run-management — draft context, not yet planned*
+*Phase: 04-run-management — draft, rewritten from LLM4MOF + LLM4MO + the charter*
