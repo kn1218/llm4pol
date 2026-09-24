@@ -403,7 +403,7 @@ None. No stub, placeholder, skipped test or unrun `<verify>` was introduced. The
 
 - The candidate table Phase 3 serves has changed shape; every Phase-3 test and the committed protocol example are green against it in the same commit as the loader change.
 - Phase 5's searched population will be drawn from the new 78,375-candidate table. The 2 multi-label canonicals remain `unknown` and are the only repeat units the rule refuses to resolve from.
-- ADR-0006's Consequences section carries a wording slip (recorded under deviation 1). Its Context table — the authoritative one — reproduces exactly. Flagged for the owner; not edited here.
+- ADR-0006's Consequences section carries a wording slip (recorded under deviation 1). Its Context table — the authoritative one — reproduces exactly. Flagged for the owner, who reproduced the measurement independently and corrected the ADR in commit e8a9477: the 60 unresolved rows come from 55 canonicals with no label at all, and neither multi-label canonical carries an empty row; not edited here.
 
 ---
 *Phase: 02-data-foundation*
