@@ -18,7 +18,7 @@ from typing import Any
 
 import pandas as pd
 
-from llm4pol.data.identity import UNKNOWN_TACTICITY, normalise_tacticity
+from llm4pol.data.identity import UNKNOWN_TACTICITY, normalise_tacticity, observed_labels
 from llm4pol.data.load import build_candidates
 from llm4pol.data.registry import PropertySpec, Registry
 
@@ -34,6 +34,7 @@ CHECK_TC_COLUMN = "check_tc"
 SMILES_COLUMN = "smiles_list"
 CANONICAL_COLUMN = "canonical_psmiles"
 TACTICITY_COLUMN = "tacticity"
+ROW_INDEX_COLUMN = "row_index"
 UUID_COLUMN = "UUID"
 MONOMER_ID_COLUMN = "monomer_ID"
 N_SQUARED = "refractive_index_squared"
@@ -195,6 +196,55 @@ def multi_tacticity_counts(source_rows: Any) -> MultiTacticity:
 def multi_tacticity_counts_canonical(rows: Any) -> MultiTacticity:
     """By ``canonical_psmiles`` on the in-scope rows (R-1: printed beside the raw count)."""
     return _multi_tacticity(rows, CANONICAL_COLUMN)
+
+
+@dataclass(frozen=True)
+class TacticityResolution:
+    """How the ADR-0006 rule disposed of the in-scope rows whose source tacticity was empty."""
+
+    empty_rows: int
+    resolved: dict[str, int]
+    unresolved: int
+    multi_label_canonical: int
+
+
+def tacticity_resolution_counts(source_rows: Any, rows: Any) -> TacticityResolution:
+    """Count the ADR-0006 outcome of every in-scope row whose SOURCE tacticity was empty.
+
+    ``rows`` is the in-scope frame; its ``row_index`` positionally indexes
+    ``source_rows`` (``load.add_identity`` assigns it before any filtering), so
+    this join is the only thing that recovers which rows were originally empty
+    once the column has been resolved. ``resolved`` counts the label each such
+    row now carries and ``unresolved`` the ones still spelled ``unknown``, so
+    the two partition ``empty_rows`` both before and after the call site is
+    flipped. ``multi_label_canonical`` counts the distinct ``canonical_psmiles``
+    that carry at least one originally-empty row and two or more distinct
+    non-empty labels -- the rows the rule's own guard leaves ``unknown``.
+    """
+    raw = source_rows.iloc[rows[ROW_INDEX_COLUMN].tolist()]
+    source_labels = [
+        normalise_tacticity(None if pd.isna(value) else value)
+        for value in raw[TACTICITY_COLUMN].tolist()
+    ]
+    canonical = rows[CANONICAL_COLUMN].tolist()
+    current = rows[TACTICITY_COLUMN].tolist()
+    seen = observed_labels(canonical, source_labels)
+
+    empty_rows = 0
+    unresolved = 0
+    resolved: dict[str, int] = {}
+    multi_label: set[str] = set()
+    for source_label, key, label in zip(source_labels, canonical, current, strict=True):
+        if source_label != UNKNOWN_TACTICITY:
+            continue
+        empty_rows += 1
+        if label == UNKNOWN_TACTICITY:
+            unresolved += 1
+        else:
+            resolved[label] = resolved.get(label, 0) + 1
+        if len(seen[key]) > 1:
+            multi_label.add(key)
+    return TacticityResolution(empty_rows, resolved, unresolved, len(multi_label))
 
 
 def raw_string_merges(rows: Any) -> int:

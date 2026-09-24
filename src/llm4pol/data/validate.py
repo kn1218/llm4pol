@@ -218,6 +218,7 @@ def _read_processed(processed: Path, csv_sha: str, registry: Registry) -> tuple[
         )
     wanted = (
         "candidate_id",
+        "row_index",
         filters.CANONICAL_COLUMN,
         filters.SMILES_COLUMN,
         filters.TACTICITY_COLUMN,
