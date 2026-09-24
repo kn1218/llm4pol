@@ -12,6 +12,7 @@ import hashlib
 import re
 
 from conftest import SYNTHETIC_ROWS
+from llm4pol.data import identity
 from llm4pol.data.identity import (
     UNKNOWN_TACTICITY,
     candidate_id,
@@ -83,3 +84,75 @@ def test_candidate_id_differs_across_tacticity_and_canonical() -> None:
     }
     assert len(ids) == 3
     assert all(ID_PATTERN.match(value) for value in ids)
+
+
+# --- Plan 02-06: the ADR-0006 resolution rule (D-25, DATA-04) --------------
+#
+# `resolve_tacticity` is reached through the `identity` module object rather
+# than imported by name: during this plan's RED commit the two helpers do not
+# exist yet, and a `from ... import resolve_tacticity` at module level would
+# turn that RED into a collection error that also fails the seven vectors
+# above, which must stay green throughout (plan 02-06 Task 1 verify 3).
+# Every string below is an invented repeat unit; none is read from the file.
+
+
+def test_resolve_tacticity_takes_the_label_of_a_single_twin() -> None:
+    """One labelled twin: the unknown entry takes that label, the rest are unchanged."""
+    canonical = ["*CC*", "*CC*", "*CC*"]
+    tacticity = ["atactic", UNKNOWN_TACTICITY, "atactic"]
+    assert identity.resolve_tacticity(canonical, tacticity) == [
+        "atactic",
+        "atactic",
+        "atactic",
+    ]
+
+
+def test_resolve_tacticity_keeps_unknown_without_a_twin() -> None:
+    """No labelled twin anywhere for that canonical: every entry stays unknown."""
+    canonical = ["*CC(*)C", "*CC(*)C"]
+    tacticity = [UNKNOWN_TACTICITY, UNKNOWN_TACTICITY]
+    assert identity.resolve_tacticity(canonical, tacticity) == [
+        UNKNOWN_TACTICITY,
+        UNKNOWN_TACTICITY,
+    ]
+
+
+def test_resolve_tacticity_keeps_unknown_when_two_labels_are_observed() -> None:
+    """Two distinct labelled twins: the rule's own guard leaves the empty value unknown."""
+    canonical = ["*CC(*)F", "*CC(*)F", "*CC(*)F"]
+    tacticity = ["none", "atactic", UNKNOWN_TACTICITY]
+    assert identity.resolve_tacticity(canonical, tacticity) == [
+        "none",
+        "atactic",
+        UNKNOWN_TACTICITY,
+    ]
+
+
+def test_resolve_tacticity_is_order_preserving_and_total() -> None:
+    """Same length, same order; every output is the input or a label that canonical carries."""
+    canonical = ["*CC*", "*CC(*)C", "*CC*", "*CC(*)F", "*CC(*)C", "*CC(*)F"]
+    tacticity = [
+        UNKNOWN_TACTICITY,
+        "none",
+        "none",
+        UNKNOWN_TACTICITY,
+        UNKNOWN_TACTICITY,
+        "atactic",
+    ]
+    resolved = identity.resolve_tacticity(canonical, tacticity)
+    assert len(resolved) == len(canonical)
+    assert resolved == ["none", "none", "none", "atactic", "none", "atactic"]
+    seen = identity.observed_labels(canonical, tacticity)
+    for canon, before, after in zip(canonical, tacticity, resolved, strict=True):
+        assert after == before or after in seen[canon]
+
+
+def test_observed_labels_maps_each_canonical_to_its_non_empty_labels() -> None:
+    """The label map holds frozensets of real labels only; unknown is never a member."""
+    canonical = ["*CC*", "*CC*", "*CC(*)C", "*CC(*)F"]
+    tacticity = ["none", "atactic", UNKNOWN_TACTICITY, "isotactic"]
+    seen = identity.observed_labels(canonical, tacticity)
+    assert seen["*CC*"] == frozenset({"none", "atactic"})
+    assert seen["*CC(*)C"] == frozenset()
+    assert seen["*CC(*)F"] == frozenset({"isotactic"})
+    assert all(UNKNOWN_TACTICITY not in labels for labels in seen.values())

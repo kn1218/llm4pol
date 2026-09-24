@@ -23,7 +23,16 @@ import pandas as pd
 import pytest
 
 from conftest import REPO_ROOT
-from llm4pol.data import filters, load, registry, replicates, report, snapshot, validate
+from llm4pol.data import (
+    filters,
+    identity,
+    load,
+    registry,
+    replicates,
+    report,
+    snapshot,
+    validate,
+)
 from llm4pol.data.load import LoadResult
 from llm4pol.data.schema import PROPERTY_COLUMNS
 from test_data_cli import SYNTHETIC_EXPECTED
@@ -623,3 +632,74 @@ def test_committed_validator_report_exists_and_names_revision_and_sections() -> 
         if len(cell) > MAX_CELL_CHARACTERS
     ]
     assert not long_cells, long_cells
+
+
+# --- Plan 02-06: D-11, the ADR-0006 resolution guard (D-25, DATA-10) -------
+#
+# ADR-0006: before the identity is taken, an empty `tacticity` takes the label
+# of its twin when the same `canonical_psmiles` carries exactly one non-empty
+# label elsewhere in the snapshot. The guard is that the rule is a lookup and
+# never an inference: no candidate may carry a label its own repeat unit was
+# not observed with, and a canonical with two distinct labelled twins keeps
+# the literal `unknown`.
+
+
+def _observed_labels_of_source(source: Any, rows: Any) -> dict[str, frozenset[str]]:
+    """The label map of the in-scope rows, built from the SOURCE tacticity column."""
+    raw = source.iloc[rows["row_index"].tolist()]
+    labels = [
+        identity.normalise_tacticity(None if pd.isna(value) else value)
+        for value in raw[filters.TACTICITY_COLUMN].tolist()
+    ]
+    return identity.observed_labels(rows[filters.CANONICAL_COLUMN].tolist(), labels)
+
+
+def test_d11_resolution_never_assigns_an_unobserved_label(synthetic_root: Path) -> None:
+    """D-11: a candidate's tacticity is `unknown` or a label its canonical was seen with."""
+    result = load.load(synthetic_root)
+    rows = pd.read_parquet(result.rows_parquet)
+    candidates = pd.read_parquet(result.candidates_parquet)
+    source = load.read_source(snapshot.csv_path(synthetic_root))
+    seen = _observed_labels_of_source(source, rows)
+
+    offending = [
+        (canonical, tacticity)
+        for canonical, tacticity in zip(
+            candidates[filters.CANONICAL_COLUMN].tolist(),
+            candidates[filters.TACTICITY_COLUMN].tolist(),
+            strict=True,
+        )
+        if tacticity != identity.UNKNOWN_TACTICITY
+        and tacticity not in seen.get(canonical, frozenset())
+    ]
+    assert not offending, offending
+
+
+def test_d11_two_labelled_twins_keep_unknown() -> None:
+    """D-11: exactly one label resolves; two distinct labels leave the empty value unknown."""
+    canonical = ["*CC*", "*CC*", "*CC*", "*CC(*)C", "*CC(*)C"]
+    tacticity = [
+        "none",
+        "atactic",
+        identity.UNKNOWN_TACTICITY,
+        "atactic",
+        identity.UNKNOWN_TACTICITY,
+    ]
+    resolved = identity.resolve_tacticity(canonical, tacticity)
+    assert resolved[2] == identity.UNKNOWN_TACTICITY
+    assert resolved[:2] == ["none", "atactic"]
+    assert resolved[3:] == ["atactic", "atactic"]
+
+
+def test_d11_resolution_counts_sum_to_the_empty_row_population(synthetic_root: Path) -> None:
+    """The report's resolution table partitions the originally-empty in-scope rows."""
+    result = load.load(synthetic_root)
+    rows = pd.read_parquet(result.rows_parquet)
+    source = load.read_source(snapshot.csv_path(synthetic_root))
+    counts = filters.tacticity_resolution_counts(source, rows)
+
+    raw = source.iloc[rows["row_index"].tolist()]
+    empty = int(raw[filters.TACTICITY_COLUMN].isna().sum())
+    assert counts.empty_rows == empty == 1
+    assert sum(counts.resolved.values()) + counts.unresolved == counts.empty_rows
+    assert counts.multi_label_canonical == 0
