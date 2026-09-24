@@ -81,7 +81,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Invariants D-7..D-10 and A-7 run as tests inside the check gate, added in the same change as the loader (charter §13 M1 (6))
 
 **Freezes**: candidate definition (`candidate_id = sha256(canonical_psmiles + "|" + tacticity)[:16]`), property registry (`protocol/schemas/property-registry.json`), snapshot identifier `polyomics:general_polymers@<hf_revision>` (charter §7, §13 M1)
-**Plans**: 5/5 plans executed
+**Plans**: 5/6 plans executed
 
 Plans:
 **Wave 1**
@@ -97,6 +97,10 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [x] 02-05-PLAN.md — README numbers, Tg ladder, feasible set as D-16 input, D-8/D-10/A-7 promoted, committed report, README correction, CI evidence (wave 3)
+
+**Wave 4** *(follow-on: ADR-0006 changes the candidate definition frozen at M1)*
+
+- [ ] 02-06-PLAN.md — Resolve a missing `tacticity` from its labelled twin before the identity: 78,375 candidates, resolution counts published, D-11 promoted, report republished (wave 4)
 
 Charter §8 permits fetch/identity ∥ validate inside this phase.
 
