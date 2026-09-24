@@ -5,16 +5,16 @@ current_phase: 4
 current_phase_name: Run Management
 current_plan: Not started
 status: planning
-stopped_at: Phase 3 complete, ready to plan Phase 4
-last_updated: "2026-09-21T22:28:12.680Z"
-last_activity: 2026-09-22
-last_activity_desc: Phase 3 complete, transitioned to Phase 4
-state_head: 05857877c69909e5a957c9f6f8de7d8088f0865a
+stopped_at: Completed 02-06-PLAN.md
+last_updated: "2026-09-24T06:09:25.920Z"
+last_activity: 2026-09-24
+last_activity_desc: 02-06 executed (ADR-0006 tacticity resolution); Phase 2 complete at 6/6
+state_head: 1277838064612da34f9cb665fdf75eebf1ee4df1
 progress:
   total_phases: 8
   completed_phases: 1
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 10
+  completed_plans: 10
 ---
 
 # Project State
@@ -72,6 +72,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 03 P01 | 16 min | 3 tasks | 19 files |
 | Phase 03 P02 | 9min | 2 tasks | 10 files |
 | Phase 03 P03 | 13min | 3 tasks | 6 files |
+| Phase 02 P06 | 30min | 5 tasks | 21 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,9 @@ Recent decisions affecting current work:
 - [Phase 3]: 03-02: unsupported is decided before a cache key exists (never reaches the cache); a cache hit is dataclasses.replace(hit, cached=True, cost=Cost(0, 0.0)); the CLI meter is per invocation, cross-run spend belongs to the Phase 4 ledger
 - [Phase 3]: 03-03: the loop.agents-only llm import contract added per REQUIREMENTS.md EVAL-06 over CONTEXT R-1 (precedence); owner flag, one block and one test to reverse
 - [Phase 3]: 03-03: A-2 written as an optional-layers import-linter contract (both layers in parentheses) because a forbidden contract errors on an absent source; Phase 5 may rewrite it once llm4pol.loop exists
+- [Phase 2]: 02-06: tacticity_multi_label_canonical counts every in-scope canonical with two or more distinct non-empty labels, not only those carrying an empty row: ADR-0006's Context table states 2 and the plan's extra conjunct publishes 0
+- [Phase 2]: 02-06: documented findings that drifted inside their own tolerance were not republished, so the drift budget stays spent-down rather than reset
+- [Phase 2]: 02-06: D-11 promoted to a guarded INVARIANTS.md row in the same commit as the call site (ADR-0006, DATA-10)
 
 ### Pending Todos
 
@@ -122,6 +126,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-21T22:15:27.047Z
-Stopped at: Phase 3 complete, ready to plan Phase 4
+Last session: 2026-09-24T06:09:24.494Z
+Stopped at: Completed 02-06-PLAN.md
 Resume file: None

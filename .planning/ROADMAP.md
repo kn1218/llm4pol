@@ -81,7 +81,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Invariants D-7..D-10 and A-7 run as tests inside the check gate, added in the same change as the loader (charter §13 M1 (6))
 
 **Freezes**: candidate definition (`candidate_id = sha256(canonical_psmiles + "|" + tacticity)[:16]`), property registry (`protocol/schemas/property-registry.json`), snapshot identifier `polyomics:general_polymers@<hf_revision>` (charter §7, §13 M1)
-**Plans**: 5/6 plans executed
+**Plans**: 6/6 plans executed
 
 Plans:
 **Wave 1**
@@ -100,7 +100,7 @@ Plans:
 
 **Wave 4** *(follow-on: ADR-0006 changes the candidate definition frozen at M1)*
 
-- [ ] 02-06-PLAN.md — Resolve a missing `tacticity` from its labelled twin before the identity: 78,375 candidates, resolution counts published, D-11 promoted, report republished (wave 4)
+- [x] 02-06-PLAN.md — Resolve a missing `tacticity` from its labelled twin before the identity: 78,375 candidates, resolution counts published, D-11 promoted, report republished (wave 4)
 
 Charter §8 permits fetch/identity ∥ validate inside this phase.
 
@@ -233,7 +233,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 (ch
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 1/1 | Complete    | 2026-09-22 |
-| 2. Data Foundation | 5/5 | Complete    | 2026-09-22 |
+| 2. Data Foundation | 6/6 | Complete    | 2026-09-24 |
 | 3. Evaluator (table backend) | 3/3 | Complete    | 2026-09-22 |
 | 4. Run Management | 0/? | Not started | - |
 | 5. Deterministic End-to-End | 0/? | Not started | - |
