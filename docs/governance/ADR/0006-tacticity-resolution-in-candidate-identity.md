@@ -43,8 +43,12 @@ in-scope rows (95,332 after the homopolymer scope filter), of the **554 rows** w
 | resolved to `atactic` | **182** |
 | left `"unknown"` (no labelled twin, or more than one distinct label) | **60** |
 
-Two canonical SMILES carry more than one distinct label and are therefore left `"unknown"` by the
-rule's own guard. No empty row resolves to `isotactic` or `syndiotactic`.
+The 60 rows left `"unknown"` come from **55 canonical SMILES that carry an empty row and no label at
+all** — there is nothing to resolve them from. Separately, **2 canonical SMILES carry more than one
+distinct label**; the rule's second guard would leave such a row `"unknown"`, but measured on this
+snapshot neither of those two carries an empty row, so the guard admits no rows here and is enforced
+prospectively (a test pins it on a synthetic case). No empty row resolves to `isotactic` or
+`syndiotactic`.
 
 ## Decision
 
