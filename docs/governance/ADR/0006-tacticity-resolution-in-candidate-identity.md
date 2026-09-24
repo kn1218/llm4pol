@@ -76,8 +76,12 @@ row's own repeat unit was not observed to carry.
   `data/processed/candidates-041e5834.parquet` is regenerated and
   `docs/audit/polyomics-041e5834-validation.md` is republished with the new counts. Phase 2 and Phase 3
   test expectations that quote the old counts are updated in the same change.
-- The validator report states the resolution counts (176, 125, 57 unresolved) and the population each
-  is drawn from, so the change is visible in the number authority rather than only here.
+- The validator report states the resolution counts on the canonical basis the rule uses — **312 to
+  `none`, 182 to `atactic`, 60 left `"unknown"`, of 554 empty rows**, plus the 2 multi-label canonical
+  SMILES — each with the population it is drawn from, so the change is visible in the number authority
+  rather than only here. (The raw-string figures 176 / 125 / 57 in the Context section above are the
+  motivating measurement, not the rule's output; the Context table is authoritative for what the code
+  must reproduce.)
 - **Guard:** `tests/test_data_invariants.py` gains a test that no candidate resolves to a label its own
   repeat unit was never observed with, and that a SMILES with two distinct labelled twins stays
   `"unknown"`.
