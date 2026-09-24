@@ -58,8 +58,13 @@ names are kept as in the source; the registry maps keys to columns.
 kept (`Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True)`), stereo retained (D-6).
 Rows whose SMILES fails RDKit parsing are excluded with a count in the report. Rows with a second
 monomer (`smiles_2` non-null, 3 rows) are excluded as out of the homopolymer scope (ADR-0004
-§4) and counted. `tacticity` NaN is mapped to the literal `"unknown"` before hashing so the id is
-total. `candidate_id = sha256(canonical_psmiles + "|" + tacticity)[:16]`.
+§4) and counted. `tacticity` NaN is still spelled the literal `"unknown"` before hashing so the id
+is total, but **the rule for when a missing value keeps that spelling is superseded by
+ADR-0006**, which resolves it from a labelled twin: an empty `tacticity` takes the label of its
+twin when the same `canonical_psmiles` carries exactly one non-empty label elsewhere in the
+snapshot, and only a row with no labelled twin or with more than one distinct twin keeps
+`"unknown"` (see `docs/governance/ADR/0006-tacticity-resolution-in-candidate-identity.md` and
+DECISIONS-LOG D-25). `candidate_id = sha256(canonical_psmiles + "|" + tacticity)[:16]`.
 
 ### D-04 Replicates and candidate values
 Rows sharing `candidate_id` are replicates. The candidate table (`data/processed/candidates-
