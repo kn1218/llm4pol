@@ -1,7 +1,8 @@
 # Phase 4: Run Management — Context
 
 **Gathered:** 2026-09-22, **rewritten 2026-09-23**
-**Status:** Draft — needs the owner's answers to `<open_for_owner>` before planning.
+**Status:** Draft — four divergences answered by the owner (D-21..D-24); item E is the last one
+before planning.
 
 **Why it was rewritten.** The first draft derived this phase from `CALF20_DiscoveryLoop`'s ledger
 spine (ULID, `row_version`, fourteen tables, transitive invalidation, a hash chain). That was the
@@ -100,7 +101,12 @@ secret-shaped config value is written as `***REDACTED***`, asserted by a test.
 
 ### D-02 Ledger events (`ledger.jsonl`, `protocol/schemas/ledger-event.json`)
 One canonical JSON object per line (`sort_keys`, `separators=(",",":")`, `allow_nan=False`, LF).
-Envelope `{seq, ts, run_id, iteration, event, payload}`. Event kinds for M3: `run_opened`,
+**The first line is a header** (`{schema_version, run_id, problem, provenance{seed, snapshot,
+registry_version, selector, code_git_sha}}`); `resume` and `replay` read the problem from it rather
+than from CLI arguments, so a resumed run cannot silently change its own problem (D-21, taken from
+LLM4MO; the text format is kept so the record stays readable and diffable).
+Every later line is an event with the envelope
+`{seq, ts, run_id, iteration, event, payload}`. Event kinds for M3: `run_opened`,
 `iteration_opened`, `selection`, `evaluation`, `no_match`, `iteration_closed`, `run_closed`.
 Phases 5–6 add `hypothesis`, `query`, `feedback`, `llm_call` without changing the envelope.
 **No hash chain** — neither reference uses one (see D-03 for what replaces it).
@@ -142,18 +148,18 @@ detail on stderr only.
 <open_for_owner>
 ## Decisions for the owner
 
-The rewrite surfaced that **LLM4POL and its sibling LLM4MO diverge on four choices** that I made here
-without knowing the twin had already gone the other way. Two are Phase 4's to settle; two are already
-built into Phase 3 and would cost rework.
+The rewrite surfaced that **LLM4POL and its sibling LLM4MO diverge on four choices** that were made
+here without knowing the twin had already gone the other way. All four were put to the owner on
+2026-09-23 and answered; they are recorded as D-21..D-24 in `docs/governance/DECISIONS-LOG.md`.
 
-| # | Question | LLM4MO (twin) | LLM4POL today | Cost to switch |
-|---|---|---|---|---|
-| A | Ledger storage | SQLite, header row + events | JSONL (charter §7) | Phase 4 not built — free now |
-| B | Data partitions | `development / validation / test`, in the source export | none (charter §8: DB mode has no training set) | Phase 4–5; the argument differs per project |
-| C | Contract types | pydantic `BaseModel` (frozen, extra=forbid, strict) | frozen dataclasses + JSON Schema | Phase 3 built; ~1 plan of rework |
-| D | Public/private data split | `public/` and `priv*/` jsonl directories | one table; blindness by payload test | Phase 2–3 built; ~2 plans |
+| # | Question | LLM4MO (twin) | **Decision for LLM4POL** |
+|---|---|---|---|
+| A | Ledger storage | SQLite, header row + events | **JSONL with a header line** — the twin's resume-safety property, text format kept (D-21) |
+| B | Data partitions | `development / validation / test` | **None**; charter §8 stands — DB mode trains nothing, so there is no model to overfit. A scaffold-grouped split enters by ADR when a surrogate first joins the loop (D-22) |
+| C | Contract types | pydantic `BaseModel` (frozen, extra=forbid, strict) | **Keep frozen dataclasses + JSON Schema** — built and green in Phase 3; the schemas check the contract from outside the language and ride the `schema-inventory` gate step (D-23) |
+| D | Public/private data split | `public/` and `priv*/` jsonl directories | **No physical split** — blindness is guaranteed by testing the payload that leaves for the provider (A-4), not by storage layout; revisit if the Phase 6 payload test proves insufficient (D-24) |
 
-Plus the Phase 4 item that survives the rewrite:
+Plus the Phase 4 item still open:
 
 | # | Question |
 |---|---|

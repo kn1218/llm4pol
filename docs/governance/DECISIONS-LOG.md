@@ -40,6 +40,10 @@ until it appears in `MASTER-PLAN.md` or an accepted ADR. Status values:
 | D-18 | Live-mode scope | Not in the first paper; gated follow-on. Fixed at M9 entry | 2026-09-21 | Recorded, gated (ADR-0005) |
 | D-19 | May PolyOmics-derived content (repeat-unit SMILES, tags, sampled values) be sent to a hosted LLM API? | Yes, under the blind rule: never row ids, table size, percentiles, thresholds or global statistics. D-04 still governs PoLyInfo content | 2026-09-21 | Accepted (ADR-0005) |
 | D-20 | Staged charter approval with D-16/D-17/D-18 as milestone-gated parameters | Yes | 2026-09-21 | Accepted (ADR-0005) |
+| D-21 | Run ledger storage: JSONL or SQLite (the sibling port LLM4MO uses SQLite with a header row) | **JSONL with a header line** -- the first line carries `problem` + `provenance` so a resumed run cannot silently change its own problem (LLM4MO's property), while the record stays human-readable and diffable. Charter section 7 unchanged | 2026-09-23 | Accepted |
+| D-22 | Data partitions: development / validation / test, as in LLM4MO | **No partitions.** Charter section 8 stands: DB mode trains nothing, so there is no model to overfit. A scaffold-grouped split is added by ADR when a surrogate first enters the loop | 2026-09-23 | Accepted |
+| D-23 | Contract types: frozen dataclasses + JSON Schema (LLM4POL) or pydantic BaseModel (LLM4MO) | **Keep frozen dataclasses + JSON Schema.** Built and green in Phase 3; the schemas validate the contract from outside the language and are enforced by the `schema-inventory` gate step | 2026-09-23 | Accepted |
+| D-24 | Physical public/private data split, as in LLM4MO | **No physical split.** Blindness is guaranteed by testing the payload that leaves for the provider (A-4), not by storage layout. Revisit if the Phase 6 payload test proves insufficient | 2026-09-23 | Accepted |
 
 ## Open
 
