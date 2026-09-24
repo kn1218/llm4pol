@@ -24,7 +24,7 @@ subordinate to the charter (ADR-0002).
 - [x] **DATA-06**: `llm4pol.data.validate` emits a validator report (`docs/audit/polyomics-<rev>-validation.md`) that reproduces or documents the difference for: row count, unique repeat units, filtered triple count 43,561, `static_dielectric_const` Maxwell violation 88.9 %, `dielectric_const_dc` violation 0, and resolves 95,335 vs 73,045
 - [x] **DATA-07**: The validator report records the replicate structure and the replicate noise floor of `thermal_conductivity`, `dielectric_const_dc` and `tg`
 - [x] **DATA-08**: The validator report states the feasible-set size under the development default thresholds (ε ≤ table Q25, Tg ≥ 400 K)
-- [x] **DATA-09**: Tg rows are filtered by `tg_rmse` and to 100–900 K; the filter counts are recorded (ADR-0004 §2)
+- [x] **DATA-09**: Tg rows are filtered to the 100-900 K window and the `tg_rmse` ladder is recorded at every rung; no `tg_rmse` cut is applied in M1, because `tg_rmse` is a density-residual sum of squares rather than a temperature and plays no part in reproducing the 43,561 triple. The cut threshold is a pre-registration parameter fixed with D-16 at Phase 7 (ADR-0004 S2, D-28)
 - [x] **DATA-10**: Invariants D-7..D-10 and A-7 are promoted from prose to tests in the same change that adds the loader
 
 ### Evaluator (charter §13 M2, §7, §4 A-1..A-3)

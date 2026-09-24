@@ -1,8 +1,7 @@
 # Phase 4: Run Management — Context
 
 **Gathered:** 2026-09-22, **rewritten 2026-09-23**
-**Status:** Draft — four divergences answered by the owner (D-21..D-24); item E is the last one
-before planning.
+**Status:** Ready for planning — every open item answered (D-21..D-24, D-27).
 
 **Why it was rewritten.** The first draft derived this phase from `CALF20_DiscoveryLoop`'s ledger
 spine (ULID, `row_version`, fourteen tables, transitive invalidation, a hash chain). That was the
@@ -159,11 +158,11 @@ here without knowing the twin had already gone the other way. All four were put 
 | C | Contract types | pydantic `BaseModel` (frozen, extra=forbid, strict) | **Keep frozen dataclasses + JSON Schema** — built and green in Phase 3; the schemas check the contract from outside the language and ride the `schema-inventory` gate step (D-23) |
 | D | Public/private data split | `public/` and `priv*/` jsonl directories | **No physical split** — blindness is guaranteed by testing the payload that leaves for the provider (A-4), not by storage layout; revisit if the Phase 6 payload test proves insufficient (D-24) |
 
-Plus the Phase 4 item still open:
+Plus the Phase 4 item, also now answered:
 
-| # | Question |
-|---|---|
-| E | `experiments/` git policy — ADR-0001's stated licence reason no longer applies to the PolyOmics layer |
+| # | Question | **Decision** |
+|---|---|---|
+| E | `experiments/` git policy | **Commit the summaries, ignore the ledger** — `meta.json`, `usage.json` and `results.csv` are tracked so a published number can be cited from inside the repository; `ledger.jsonl` stays ignored for size. ADR-0001's wording is corrected in the same change, since its licence reason no longer covers the PolyOmics layer (D-27) |
 </open_for_owner>
 
 <deferred>
