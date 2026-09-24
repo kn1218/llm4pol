@@ -28,9 +28,23 @@ Measured on the pinned revision `041e5834` on 2026-09-24, over the unique SMILES
 those repeat units. The empty class is a mixture — about half have no stereocentre and belong with
 `none`, about half carry stereocentres and are simply unlabelled.
 
-301 raw SMILES appear both with an empty value and with exactly one label: **176 pair with `none`,
-125 pair with `atactic`**. In each case the same repeat unit was simulated more than once under the
-same cell settings and the label was recorded on one run and not the other.
+301 **raw** SMILES strings appear both with an empty value and with exactly one label — 176 pairing
+with `none`, 125 with `atactic`. In each case the same repeat unit was simulated more than once under
+the same cell settings and the label was recorded on one run and not the other.
+
+The rule below keys on `canonical_psmiles`, not on the raw string, so it resolves more than that
+motivating count: RDKit canonicalisation merges raw variants of one repeat unit. Measured on the
+in-scope rows (95,332 after the homopolymer scope filter), of the **554 rows** with an empty
+`tacticity`:
+
+| Outcome | Rows |
+|---|---|
+| resolved to `none` | **312** |
+| resolved to `atactic` | **182** |
+| left `"unknown"` (no labelled twin, or more than one distinct label) | **60** |
+
+Two canonical SMILES carry more than one distinct label and are therefore left `"unknown"` by the
+rule's own guard. No empty row resolves to `isotactic` or `syndiotactic`.
 
 ## Decision
 
@@ -54,8 +68,11 @@ row's own repeat unit was not observed to carry.
 
 - `llm4pol.data.identity` gains a resolution pass over the snapshot before hashing; the rule needs the
   whole table, so it runs in `load`, not per row.
-- **`candidate_id` changes for the affected rows**, and the candidate count falls from 78,676. The
-  candidate definition is frozen at M1 (charter §7), so this ADR is the instrument that changes it;
+- **`candidate_id` changes for the affected rows**, and the candidate count falls from **78,676 to
+  78,375** (−301). The candidate-level triple counts move by a smaller amount and are republished from
+  the validator itself rather than quoted here, since they depend on the filter-then-median order the
+  report defines. The candidate definition is frozen at M1 (charter §7), so this ADR is the instrument
+  that changes it;
   `data/processed/candidates-041e5834.parquet` is regenerated and
   `docs/audit/polyomics-041e5834-validation.md` is republished with the new counts. Phase 2 and Phase 3
   test expectations that quote the old counts are updated in the same change.
