@@ -13,14 +13,14 @@
         "cpu_hours": 0.0,
         "evals": 1
       },
-      "n_replicates": 3,
+      "n_replicates": 4,
       "property": "thermal_conductivity",
       "provenance_tier": "md_simulated",
       "source": "polyomics:general_polymers@041e5834",
-      "spread": 0.020000000000000018,
+      "spread": 0.017078251276599347,
       "status": "ok",
       "unit": "W/(m*K)",
-      "value": 0.32
+      "value": 0.315
     },
     {
       "backend": "table",
@@ -30,14 +30,14 @@
         "cpu_hours": 0.0,
         "evals": 0
       },
-      "n_replicates": 3,
+      "n_replicates": 4,
       "property": "dielectric_const_dc",
       "provenance_tier": "md_simulated",
       "source": "polyomics:general_polymers@041e5834",
-      "spread": 0.029999999999999916,
+      "spread": 0.02499999999999991,
       "status": "ok",
       "unit": "1",
-      "value": 2.33
+      "value": 2.335
     },
     {
       "backend": "table",
@@ -47,14 +47,14 @@
         "cpu_hours": 0.0,
         "evals": 0
       },
-      "n_replicates": 3,
+      "n_replicates": 4,
       "property": "tg",
       "provenance_tier": "md_simulated",
       "source": "polyomics:general_polymers@041e5834",
-      "spread": 10.0,
+      "spread": 8.539125638299666,
       "status": "ok",
       "unit": "K",
-      "value": 260.0
+      "value": 262.5
     },
     {
       "backend": "table",

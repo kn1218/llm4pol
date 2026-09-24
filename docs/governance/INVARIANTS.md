@@ -9,6 +9,8 @@ invariants A-1..A-7 are declared in `docs/MASTER-PLAN.md` §4 with the milestone
 each guard; they are prose until that milestone. A-1 and A-2 (M2), A-3 (M2 guard; the M3
 ledger guard pending) and A-7 (M1) have landed in the architecture table below. D-1..D-6 apply to the PoLyInfo loader
 (first written at M8); D-7..D-10 apply to every table, PolyOmics included (guard at M1).
+D-11 is not from the audit report: it comes from ADR-0006, which changed the candidate
+definition at M1, and its guard landed in the same change as the code it constrains.
 
 ## Repository and process
 
@@ -34,6 +36,7 @@ ledger guard pending) and A-7 (M1) have landed in the architecture table below. 
 | D-8 | Splits are grouped by polymer identity, never random at row level. Replicates would otherwise leak | no split code exists in `llm4pol.data`; `[tool.importlinter]` contract forbidding `sklearn` from `llm4pol.data` (`import-linter` step); `tests/test_data_invariants.py::test_d8_no_row_level_split_code_under_llm4pol_data`; sampling in later phases is at candidate level after `build_candidates` (charter §9) |
 | D-9 | A reported effect smaller than the measured replicate noise floor is not reported as an effect | the `Replicate structure and noise floor` section of `docs/audit/polyomics-041e5834-validation.md` (per-property median relative and absolute spread over candidates with n ≥ 2, on the in-scope rows and on the README-triple rows); `tests/test_data_invariants.py::test_d9_report_states_noise_floor_per_property_with_population` |
 | D-10 | Every reported count states the population it is drawn from. Matched-set sizes are recorded alongside every aggregate | `llm4pol.data.report.CountTable` refuses a table without a `population` column; every finding line of `python -m llm4pol.data validate` names its population; `tests/test_data_invariants.py::test_d10_every_count_table_in_report_names_its_population` |
+| D-11 | A missing `tacticity` is resolved only from a labelled twin of the same canonical repeat unit, and only when that label is unique: no candidate ever carries a label its own repeat unit was not observed with, and a repeat unit with two distinct labelled twins keeps `"unknown"` (ADR-0006) | `llm4pol.data.identity.resolve_tacticity` applied over the whole in-scope frame by `llm4pol.data.load.add_identity` before the identity is taken; `tests/test_data_invariants.py::test_d11_resolution_never_assigns_an_unobserved_label`; `tests/test_data_invariants.py::test_d11_two_labelled_twins_keep_unknown`; the `Tacticity resolution (ADR-0006)` table of `docs/audit/polyomics-041e5834-validation.md` |
 
 ## Architecture (charter §4) — guards landed
 

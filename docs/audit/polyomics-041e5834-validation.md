@@ -45,7 +45,7 @@ The dataset card's 73,045 ("73,045 general polymers in the isotropic amorphous s
 
 ## Scope exclusions and identity
 
-Rows with a second monomer are excluded before parsing (homopolymer scope, ADR-0004); rows whose SMILES RDKit cannot parse are excluded and counted (D-03). `unique_candidate_ids` is read from the candidate parquet, one row per `candidate_id` (D-7). A missing tacticity is the literal `unknown` and stays a separate candidate in M1, so a repeat unit that also occurs with a known tacticity gets an `unknown` twin; the count with and without those twins is printed (F-39, F-48) and the twins are raised for the owner before Phase 3 (R-1). `raw_string_merges` is the number of distinct `smiles_list` strings that canonicalise to the same repeat unit (F-35).
+Rows with a second monomer are excluded before parsing (homopolymer scope, ADR-0004); rows whose SMILES RDKit cannot parse are excluded and counted (D-03). `unique_candidate_ids` is read from the candidate parquet, one row per `candidate_id` (D-7). An empty `tacticity` takes the label of its twin when the same `canonical_psmiles` carries exactly one non-empty label elsewhere in the snapshot; a row with no labelled twin, or with more than one distinct labelled twin, keeps the literal `unknown`. The rule is a lookup inside this snapshot, never an inference from chemistry, and it runs over the whole in-scope frame before the identity is taken. It answers the owner question R-1 raised at M1, decided as D-25 and recorded as ADR-0006; the resolution table below states each outcome with the population it is drawn from. The `multi_tacticity_smiles_*` counts are taken on the source column before the resolution, the `multi_tacticity_canonical_*` counts on the in-scope rows after it (F-39, F-48). `raw_string_merges` is the number of distinct `smiles_list` strings that canonicalise to the same repeat unit (F-35).
 
 ### Scope exclusions
 
@@ -60,13 +60,25 @@ Rows with a second monomer are excluded before parsing (homopolymer scope, ADR-0
 |---|---|---|
 | in_scope_rows | in-scope rows | 95,332 |
 | unique_canonical | in-scope rows | 78,373 |
-| unique_candidate_ids | in-scope rows | 78,676 |
+| unique_candidate_ids | in-scope rows | 78,375 |
 | raw_string_merges | in-scope rows | 5 |
 | multi_tacticity_smiles_with_unknown | all source rows | 303 |
 | multi_tacticity_smiles_without_unknown | all source rows | 2 |
 | multi_tacticity_smiles_unknown_twins | all source rows | 301 |
-| multi_tacticity_canonical_with_unknown | in-scope rows | 303 |
+| multi_tacticity_canonical_with_unknown | in-scope rows | 2 |
 | multi_tacticity_canonical_without_unknown | in-scope rows | 2 |
+
+### Tacticity resolution (ADR-0006)
+
+| quantity | population | value |
+|---|---|---|
+| tacticity_empty_in_scope | in-scope rows | 554 |
+| tacticity_resolved_none | in-scope rows with an empty tacticity | 312 |
+| tacticity_resolved_atactic | in-scope rows with an empty tacticity | 182 |
+| tacticity_resolved_isotactic | in-scope rows with an empty tacticity | 0 |
+| tacticity_resolved_syndiotactic | in-scope rows with an empty tacticity | 0 |
+| tacticity_unresolved | in-scope rows with an empty tacticity | 60 |
+| tacticity_multi_label_canonical | in-scope rows | 2 |
 
 ## Coverage per registry property
 
@@ -169,7 +181,7 @@ The README's 43,561 is exactly `thermal_conductivity` non-null and `dielectric_c
 | ∧ check_tc == True (protocol filter, not in the README) | all source rows | 42,733 | 42,733 | reproduced |
 | in-scope ∧ check_tc | in-scope rows | 42,732 | — | — |
 | candidates (filter then median) | candidate-level README triple (filter then median) | 40,212 | 40,212 | reproduced |
-| candidates (median then filter; alternative, not used) | candidate-level README triple (median then filter) | 40,426 | 40,426 | documented |
+| candidates (median then filter; alternative, not used) | candidate-level README triple (median then filter) | 40,428 | 40,428 | documented |
 
 ### Alternative dielectric_const_dc filters (printed, not used)
 
@@ -247,34 +259,38 @@ Rows sharing `candidate_id` are replicates (D-7). Same-version candidates have i
 
 | quantity | population | value |
 |---|---|---|
-| candidates | in-scope rows | 78,676 |
-| multi-row candidates | in-scope rows | 12,983 |
-| rows in multi-row candidates | in-scope rows | 29,639 |
-| max rows per candidate | in-scope rows | 17 |
-| rows per candidate = 1 | candidates | 65,693 |
-| rows per candidate = 2 | candidates | 11,368 |
-| rows per candidate = 3 | candidates | 577 |
-| rows per candidate = 4 | candidates | 55 |
-| rows per candidate = 5 | candidates | 962 |
-| rows per candidate = 6 | candidates | 17 |
-| rows per candidate = 7 | candidates | 2 |
-| rows per candidate = 9 | candidates | 1 |
-| rows per candidate = 17 | candidates | 1 |
-| same-version replicate candidates | multi-row candidates | 1,887 |
-| cross-version re-run candidates | multi-row candidates | 11,096 |
+| candidates | in-scope rows | 78,375 |
+| multi-row candidates | in-scope rows | 13,014 |
+| rows in multi-row candidates | in-scope rows | 29,971 |
+| max rows per candidate | in-scope rows | 22 |
+| rows per candidate = 1 | candidates | 65,361 |
+| rows per candidate = 2 | candidates | 11,398 |
+| rows per candidate = 3 | candidates | 572 |
+| rows per candidate = 4 | candidates | 68 |
+| rows per candidate = 5 | candidates | 798 |
+| rows per candidate = 6 | candidates | 142 |
+| rows per candidate = 7 | candidates | 7 |
+| rows per candidate = 8 | candidates | 6 |
+| rows per candidate = 9 | candidates | 4 |
+| rows per candidate = 10 | candidates | 9 |
+| rows per candidate = 11 | candidates | 8 |
+| rows per candidate = 12 | candidates | 1 |
+| rows per candidate = 22 | candidates | 1 |
+| same-version replicate candidates | multi-row candidates | 1,836 |
+| cross-version re-run candidates | multi-row candidates | 11,178 |
 
 ### Noise floor, all in-scope rows
 
 | property | population | n_groups | median_abs_std | median_rel_std | p90_rel_std |
 |---|---|---|---|---|---|
-| thermal_conductivity | candidates with n >= 2 (in-scope rows) | 9,439 | 0.008239 | 0.0369 | 0.0902 |
+| thermal_conductivity | candidates with n >= 2 (in-scope rows) | 9,472 | 0.00833 | 0.0372 | 0.0948 |
 | dielectric_const_dc | candidates with n >= 2 (in-scope rows) | 12,842 | 0.02268 | 0.0084 | 0.0686 |
 | tg | candidates with n >= 2 (in-scope rows) | 2,377 | 30.21 | 0.0577 | 0.4618 |
-| rg | candidates with n >= 2 (in-scope rows) | 12,983 | 0.6092 | 0.0350 | 0.0971 |
-| r2 | candidates with n >= 2 (in-scope rows) | 12,906 | 2.574 | 0.1631 | 0.4180 |
+| rg | candidates with n >= 2 (in-scope rows) | 13,014 | 0.6113 | 0.0352 | 0.0974 |
+| r2 | candidates with n >= 2 (in-scope rows) | 12,922 | 2.575 | 0.1631 | 0.4180 |
 | ffv | candidates with n >= 2 (in-scope rows) | 9,453 | 0.00471 | 0.0239 | 0.0650 |
 | sp_ced | candidates with n >= 2 (in-scope rows) | 8,606 | 4.801 | 0.0223 | 0.0648 |
-| density | candidates with n >= 2 (in-scope rows) | 12,983 | 0.003603 | 0.0034 | 0.0113 |
+| density | candidates with n >= 2 (in-scope rows) | 13,014 | 0.003628 | 0.0034 | 0.0114 |
 | refractive_index | candidates with n >= 2 (in-scope rows) | 12,842 | 0.002127 | 0.0014 | 0.0049 |
 
 ### Noise floor, README-triple rows
@@ -319,11 +335,11 @@ The feasible set is the candidates of the README triple (filter then median) who
 | parse_failures | all source rows | 0 | 0 | reproduce | reproduced |
 | in_scope_rows | in-scope rows | 95,332 | 95,332 | reproduce | reproduced |
 | unique_canonical | in-scope rows | 78,373 | 78,373 | reproduce | reproduced |
-| unique_candidate_ids | in-scope rows | 78,676 | 78,676 | reproduce | reproduced |
+| unique_candidate_ids | in-scope rows | 78,375 | 78,375 | reproduce | reproduced |
 | raw_string_merges | in-scope rows | 5 | 5 | reproduce | reproduced |
 | multi_tacticity_smiles_with_unknown | all source rows | 303 | 303 | reproduce | reproduced |
 | multi_tacticity_smiles_without_unknown | all source rows | 2 | 2 | reproduce | reproduced |
-| multi_tacticity_canonical_with_unknown | in-scope rows | 303 | 303 | documented | documented |
+| multi_tacticity_canonical_with_unknown | in-scope rows | 2 | 2 | documented | documented |
 | card_count_73045 | all source rows | not reproducible from any column | not reproducible from any column | documented | documented |
 | coverage_thermal_conductivity | all source rows | 81,405 | 81,405 | reproduce | reproduced |
 | coverage_dielectric_const_dc | all source rows | 93,488 | 93,488 | reproduce | reproduced |
@@ -338,6 +354,13 @@ The feasible set is the candidates of the README triple (filter then median) who
 | tacticity_isotactic | all source rows | 951 | 951 | reproduce | reproduced |
 | tacticity_syndiotactic | all source rows | 8 | 8 | reproduce | reproduced |
 | tacticity_unknown | all source rows | 554 | 554 | reproduce | reproduced |
+| tacticity_empty_in_scope | in-scope rows | 554 | 554 | reproduce | reproduced |
+| tacticity_resolved_none | in-scope rows with an empty tacticity | 312 | 312 | reproduce | reproduced |
+| tacticity_resolved_atactic | in-scope rows with an empty tacticity | 182 | 182 | reproduce | reproduced |
+| tacticity_resolved_isotactic | in-scope rows with an empty tacticity | 0 | 0 | reproduce | reproduced |
+| tacticity_resolved_syndiotactic | in-scope rows with an empty tacticity | 0 | 0 | reproduce | reproduced |
+| tacticity_unresolved | in-scope rows with an empty tacticity | 60 | 60 | reproduce | reproduced |
+| tacticity_multi_label_canonical | in-scope rows | 2 | 2 | reproduce | reproduced |
 | check_tc_true | all source rows | 79,927 | 79,927 | reproduce | reproduced |
 | check_tc_false | all source rows | 15,376 | 15,376 | reproduce | reproduced |
 | eps_outside_physical_range | all source rows | 5,123 | 5,123 | reproduce | reproduced |
@@ -367,11 +390,11 @@ The feasible set is the candidates of the README triple (filter then median) who
 | spearman_density_tc | README-triple rows (all source rows) | -0.270 | -0.270 | documented | documented |
 | readme_window_rows | README-triple rows (all source rows) | 1,140 | 1,140 | documented | documented |
 | readme_window_pct | README-triple rows (all source rows) | 2.62 | 2.62 | documented | documented |
-| replicate_multi_row_candidates | in-scope rows | 12,983 | 12,983 | reproduce | reproduced |
-| replicate_max_rows | in-scope rows | 17 | 17 | reproduce | reproduced |
-| same_version_replicate_candidates | multi-row candidates | 1,888 | 1,887 | documented | documented |
-| cross_version_rerun_candidates | multi-row candidates | 11,096 | 11,096 | documented | documented |
-| noise_floor_rel_thermal_conductivity | candidates with n >= 2 (in-scope rows) | 0.0369 | 0.0369 | documented | documented |
+| replicate_multi_row_candidates | in-scope rows | 13,014 | 13,014 | reproduce | reproduced |
+| replicate_max_rows | in-scope rows | 22 | 22 | reproduce | reproduced |
+| same_version_replicate_candidates | multi-row candidates | 1,836 | 1,836 | documented | documented |
+| cross_version_rerun_candidates | multi-row candidates | 11,178 | 11,178 | documented | documented |
+| noise_floor_rel_thermal_conductivity | candidates with n >= 2 (in-scope rows) | 0.0369 | 0.0372 | documented | documented |
 | noise_floor_rel_dielectric_const_dc | candidates with n >= 2 (in-scope rows) | 0.0084 | 0.0084 | documented | documented |
 | noise_floor_rel_tg | candidates with n >= 2 (in-scope rows) | 0.0577 | 0.0577 | documented | documented |
 | noise_floor_rel_density | candidates with n >= 2 (in-scope rows) | 0.0034 | 0.0034 | documented | documented |
@@ -398,14 +421,21 @@ The feasible set is the candidates of the README triple (filter then median) who
 | feasible_candidates_dev_defaults | candidate-level README triple (filter then median) | 6,793 | 6,793 | reproduce | reproduced |
 | feasible_pct_dev_defaults | candidate-level README triple (filter then median) | 16.89 | 16.89 | documented | documented |
 | feasible_rows_dev_defaults | in-scope README-triple rows | 7,317 | 7,317 | documented | documented |
-| candidate_triple_median_then_filter | candidate-level README triple (median then filter) | 40,426 | 40,426 | documented | documented |
+| candidate_triple_median_then_filter | candidate-level README triple (median then filter) | 40,428 | 40,428 | documented | documented |
 
 ### Finding notes
 
 | finding | population | tolerance | note |
 |---|---|---|---|
-| multi_tacticity_canonical_with_unknown | in-scope rows | 5 | F-39 counts by smiles_list; F-35 merges may move a group by canonical |
+| multi_tacticity_canonical_with_unknown | in-scope rows | 5 | F-39 by smiles_list; republished under ADR-0006: twins resolved |
 | card_count_73045 | all source rows | — | F-19: the card's description text; the Table S2 origin is an assumption (A1) |
+| tacticity_empty_in_scope | in-scope rows | — | ADR-0006: an empty tacticity takes the label of its single labelled twin |
+| tacticity_resolved_none | in-scope rows with an empty tacticity | — | ADR-0006: an empty tacticity takes the label of its single labelled twin |
+| tacticity_resolved_atactic | in-scope rows with an empty tacticity | — | ADR-0006: an empty tacticity takes the label of its single labelled twin |
+| tacticity_resolved_isotactic | in-scope rows with an empty tacticity | — | ADR-0006: an empty tacticity takes the label of its single labelled twin |
+| tacticity_resolved_syndiotactic | in-scope rows with an empty tacticity | — | ADR-0006: an empty tacticity takes the label of its single labelled twin |
+| tacticity_unresolved | in-scope rows with an empty tacticity | — | ADR-0006: an empty tacticity takes the label of its single labelled twin |
+| tacticity_multi_label_canonical | in-scope rows | — | ADR-0006: an empty tacticity takes the label of its single labelled twin |
 | dc_identity_max_residual | rows with dielectric_const_dc and refractive_index | 1e-05 | F-14: eps_dc = static - 1 + n^2 is an identity (Table S3); the 0 is algebra |
 | static_minimum | rows with dielectric_const_dc and refractive_index | 0.0001 | F-15 |
 | static_maxwell_violation_pct_triple | README-triple rows (all source rows) | 0.05 | F-13: README 88.9 %; 38,693/43,561 = 88.8249 % -> 88.82 (F-13 printed 88.83) |
@@ -421,8 +451,10 @@ The feasible set is the candidates of the README triple (filter then median) who
 | spearman_density_tc | README-triple rows (all source rows) | 0.001 | F-11 |
 | readme_window_rows | README-triple rows (all source rows) | 2 | F-12 |
 | readme_window_pct | README-triple rows (all source rows) | 0.01 | F-12 |
-| same_version_replicate_candidates | multi-row candidates | 10 | F-52 counted on (smiles_list, tacticity) groups; here by candidate_id (F-35) |
-| cross_version_rerun_candidates | multi-row candidates | 10 | F-52 counted on (smiles_list, tacticity) groups; here by candidate_id (F-35) |
+| replicate_multi_row_candidates | in-scope rows | — | republished under ADR-0006: 301 repeat units now pool replicates |
+| replicate_max_rows | in-scope rows | — | republished under ADR-0006: 301 repeat units now pool replicates |
+| same_version_replicate_candidates | multi-row candidates | 10 | F-52 by (smiles, tacticity), here by candidate_id; republished under ADR-0006 |
+| cross_version_rerun_candidates | multi-row candidates | 10 | F-52 by (smiles, tacticity), here by candidate_id; republished under ADR-0006 |
 | noise_floor_rel_thermal_conductivity | candidates with n >= 2 (in-scope rows) | 0.001 | F-55: median over candidates with n >= 2 of std / |median| |
 | noise_floor_rel_dielectric_const_dc | candidates with n >= 2 (in-scope rows) | 0.001 | F-55: median over candidates with n >= 2 of std / |median| |
 | noise_floor_rel_tg | candidates with n >= 2 (in-scope rows) | 0.001 | F-55: median over candidates with n >= 2 of std / |median| |
@@ -441,4 +473,4 @@ The feasible set is the candidates of the README triple (filter then median) who
 | eps_q25_triple_rows | in-scope README-triple rows | 0.0005 | F-60: Q25 of dielectric_const_dc, pandas linear interpolation |
 | feasible_pct_dev_defaults | candidate-level README triple (filter then median) | 0.02 | F-62: charter section 13 development defaults; input to the D-16 gate (ADR-0005) |
 | feasible_rows_dev_defaults | in-scope README-triple rows | 0 | F-62: rows under the row-level Q25 (2.6427); the candidate-Q25 count is printed |
-| candidate_triple_median_then_filter | candidate-level README triple (median then filter) | 0 | F-61: median then filter is the alternative order, printed and not used |
+| candidate_triple_median_then_filter | candidate-level README triple (median then filter) | 0 | F-61: the alternative order, printed and not used; republished under ADR-0006 |

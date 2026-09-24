@@ -1,6 +1,6 @@
 """Charter section 13 M2 (2), (3) reproduced on the pinned candidate table -- CI cannot run these.
 
-The processed candidate parquet (78,676 rows, 23,880,837 bytes; RESEARCH F-02)
+The processed candidate parquet (78,375 rows, ~23.8 MB; RESEARCH F-02, ADR-0006)
 is never committed, so every test here depends on the ``real_candidates``
 session fixture, which skips with its stated reason when the file is absent
 (D-08, F-41). Locally every test must PASS: the batch of 100 pinned candidates

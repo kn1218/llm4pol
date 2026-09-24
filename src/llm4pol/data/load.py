@@ -2,8 +2,13 @@
 
 CONTEXT D-02 (one parquet, declared schema), D-03 (identity, scope
 exclusions counted never raised), D-04 (replicates grouped by ``candidate_id``
-with median / n / min / max / std per registry property). Every source column
-is kept; ``candidate_id``, ``canonical_psmiles`` and ``row_index`` are added.
+with median / n / min / max / std per registry property). D-03's rule for when
+a missing tacticity keeps the literal ``"unknown"`` is superseded by ADR-0006:
+``add_identity`` resolves the whole in-scope frame through
+``identity.resolve_tacticity`` before the identity is taken, so an empty value
+takes the label of its twin when the canonical repeat unit carries exactly one
+non-empty label elsewhere in the snapshot. Every source column is kept;
+``candidate_id``, ``canonical_psmiles`` and ``row_index`` are added.
 """
 
 from __future__ import annotations
@@ -18,7 +23,12 @@ import pyarrow.parquet as pq
 
 from llm4pol.data import snapshot
 from llm4pol.data.fetch import sha256_of
-from llm4pol.data.identity import candidate_id, canonical_psmiles, normalise_tacticity
+from llm4pol.data.identity import (
+    candidate_id,
+    canonical_psmiles,
+    normalise_tacticity,
+    resolve_tacticity,
+)
 from llm4pol.data.schema import DTYPES, PROPERTY_COLUMNS, REQUIRED_SOURCE_COLUMNS, cast_declared
 
 
@@ -56,7 +66,9 @@ def add_identity(frame: Any) -> tuple[Any, int, int]:
     """Add ``row_index``, drop second-monomer and unparseable rows, add the identity columns.
 
     Returns ``(rows, excluded_second_monomer, excluded_parse_failure)``. Each
-    unique ``smiles_list`` is canonicalised once through a dict cache.
+    unique ``smiles_list`` is canonicalised once through a dict cache. An empty
+    ``tacticity`` is resolved from its labelled twin over the whole in-scope
+    frame before ``candidate_id`` is computed (ADR-0006).
     """
     rows = frame.copy()
     rows["row_index"] = range(len(rows))
@@ -83,6 +95,10 @@ def add_identity(frame: Any) -> tuple[Any, int, int]:
         for value in rows["tacticity"].tolist()
     ]
     kept_canonical = [value for value in canonical_values if value is not None]
+    # ADR-0006: one pass over the whole in-scope frame, before the hash. The
+    # rule needs the table, so it cannot run per row; `candidate_id` itself is
+    # unchanged and is simply given the resolved label.
+    tacticity = resolve_tacticity(kept_canonical, tacticity)
     rows["tacticity"] = tacticity
     rows["canonical_psmiles"] = kept_canonical
     rows["candidate_id"] = [

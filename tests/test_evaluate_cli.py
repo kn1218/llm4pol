@@ -85,10 +85,10 @@ def test_tracer_request_json_to_response_json_on_the_synthetic_root(
         assert r["cached"] is False
 
     first = results[0]
-    assert math.isclose(first["value"], 0.32, rel_tol=0.0, abs_tol=1e-9)
+    assert math.isclose(first["value"], 0.315, rel_tol=0.0, abs_tol=1e-9)
     assert first["unit"] == "W/(m*K)"
-    assert first["n_replicates"] == 3
-    assert math.isclose(first["spread"], 0.02, rel_tol=0.0, abs_tol=1e-6)
+    assert first["n_replicates"] == 4
+    assert math.isclose(first["spread"], 0.017078, rel_tol=0.0, abs_tol=1e-6)
 
     sixth = results[5]
     assert (sixth["candidate_id"], sixth["property"]) == (

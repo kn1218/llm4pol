@@ -24,6 +24,7 @@ Expectations = Mapping[str, Expected]
 
 ALL_SOURCE_ROWS = "all source rows"
 IN_SCOPE_ROWS = "in-scope rows"
+EMPTY_TACTICITY_ROWS = "in-scope rows with an empty tacticity"
 PINNED_FILES = "pinned revision files"
 TRIPLE_ALL_ROWS = "README-triple rows (all source rows)"
 TRIPLE_IN_SCOPE = "in-scope README-triple rows"
@@ -33,7 +34,7 @@ CANDIDATE_TRIPLE_ALT = "candidate-level README triple (median then filter)"
 TC_TG_ROWS = "rows with thermal_conductivity and tg in range (all source rows)"
 TG_RMSE_ROWS = "rows with tg_rmse (all source rows)"
 
-_F52_NOTE = "F-52 counted on (smiles_list, tacticity) groups; here by candidate_id (F-35)"
+_F52_NOTE = "F-52 by (smiles, tacticity), here by candidate_id; republished under ADR-0006"
 _NOISE_NOTE = "F-55: median over candidates with n >= 2 of std / |median|"
 _TRIPLE_NOTE = "F-56: rows filtered to the README triple first, then grouped (F-61)"
 # F-13 prints 88.83 % for its own fraction 38,693 / 43,561 = 88.8249 %, which rounds
@@ -42,14 +43,16 @@ _MAXWELL_NOTE = "F-13: README 88.9 %; 38,693/43,561 = 88.8249 % -> 88.82 (F-13 p
 # arXiv:2511.11626 Table S3 defines the corrected static dielectric constant.
 _IDENTITY_NOTE = "F-14: eps_dc = static - 1 + n^2 is an identity (Table S3); the 0 is algebra"
 _STATIC_N2_NOTE = "F-17: README states -0.05; not reproduced on any population"
-_CANONICAL_TWINS_NOTE = "F-39 counts by smiles_list; F-35 merges may move a group by canonical"
+_REPUBLISHED = "republished under ADR-0006: 301 repeat units now pool replicates"
+_RESOLUTION_NOTE = "ADR-0006: an empty tacticity takes the label of its single labelled twin"
+_CANONICAL_TWINS_NOTE = "F-39 by smiles_list; republished under ADR-0006: twins resolved"
 _CARD_NOTE = "F-19: the card's description text; the Table S2 origin is an assumption (A1)"
 CARD_NOT_REPRODUCIBLE = "not reproducible from any column"
 _TG_RMSE_NOTE = "F-23: tg_rmse is a sum of squared density residuals in (g/cm^3)^2, not kelvin"
 _Q25_NOTE = "F-60: Q25 of dielectric_const_dc, pandas linear interpolation"
 _FEASIBLE_NOTE = "F-62: charter section 13 development defaults; input to the D-16 gate (ADR-0005)"
 _FEASIBLE_ROWS_NOTE = "F-62: rows under the row-level Q25 (2.6427); the candidate-Q25 count is printed"
-_ORDER_NOTE = "F-61: median then filter is the alternative order, printed and not used"
+_ORDER_NOTE = "F-61: the alternative order, printed and not used; republished under ADR-0006"
 
 # Finding ids -> (class, value, tolerance, note, digits). Plan 02-01: F-06, F-07,
 # F-32, F-37; plan 02-04: F-50, F-52, F-55, F-56; plan 02-05: F-08, F-11..F-19,
@@ -62,11 +65,11 @@ EXPECTED_POLYOMICS: dict[str, Expected] = {
     "parse_failures": Expected(REPRODUCE, 0),
     "in_scope_rows": Expected(REPRODUCE, 95332),
     "unique_canonical": Expected(REPRODUCE, 78373),
-    "unique_candidate_ids": Expected(REPRODUCE, 78676),
+    "unique_candidate_ids": Expected(REPRODUCE, 78375),
     "raw_string_merges": Expected(REPRODUCE, 5),
     "multi_tacticity_smiles_with_unknown": Expected(REPRODUCE, 303),
     "multi_tacticity_smiles_without_unknown": Expected(REPRODUCE, 2),
-    "multi_tacticity_canonical_with_unknown": Expected(DOCUMENTED, 303, 5, _CANONICAL_TWINS_NOTE),
+    "multi_tacticity_canonical_with_unknown": Expected(DOCUMENTED, 2, 5, _CANONICAL_TWINS_NOTE),
     "card_count_73045": Expected(DOCUMENTED, CARD_NOT_REPRODUCIBLE, None, _CARD_NOTE),
     "coverage_thermal_conductivity": Expected(REPRODUCE, 81405),
     "coverage_dielectric_const_dc": Expected(REPRODUCE, 93488),
@@ -81,6 +84,13 @@ EXPECTED_POLYOMICS: dict[str, Expected] = {
     "tacticity_isotactic": Expected(REPRODUCE, 951),
     "tacticity_syndiotactic": Expected(REPRODUCE, 8),
     "tacticity_unknown": Expected(REPRODUCE, 554),
+    "tacticity_empty_in_scope": Expected(REPRODUCE, 554, None, _RESOLUTION_NOTE),
+    "tacticity_resolved_none": Expected(REPRODUCE, 312, None, _RESOLUTION_NOTE),
+    "tacticity_resolved_atactic": Expected(REPRODUCE, 182, None, _RESOLUTION_NOTE),
+    "tacticity_resolved_isotactic": Expected(REPRODUCE, 0, None, _RESOLUTION_NOTE),
+    "tacticity_resolved_syndiotactic": Expected(REPRODUCE, 0, None, _RESOLUTION_NOTE),
+    "tacticity_unresolved": Expected(REPRODUCE, 60, None, _RESOLUTION_NOTE),
+    "tacticity_multi_label_canonical": Expected(REPRODUCE, 2, None, _RESOLUTION_NOTE),
     "check_tc_true": Expected(REPRODUCE, 79927),
     "check_tc_false": Expected(REPRODUCE, 15376),
     "eps_outside_physical_range": Expected(REPRODUCE, 5123),
@@ -110,10 +120,10 @@ EXPECTED_POLYOMICS: dict[str, Expected] = {
     "spearman_density_tc": Expected(DOCUMENTED, -0.270, 0.001, "F-11", 3),
     "readme_window_rows": Expected(DOCUMENTED, 1140, 2, "F-12"),
     "readme_window_pct": Expected(DOCUMENTED, 2.62, 0.01, "F-12", 2),
-    "replicate_multi_row_candidates": Expected(REPRODUCE, 12983),
-    "replicate_max_rows": Expected(REPRODUCE, 17),
-    "same_version_replicate_candidates": Expected(DOCUMENTED, 1888, 10, _F52_NOTE),
-    "cross_version_rerun_candidates": Expected(DOCUMENTED, 11096, 10, _F52_NOTE),
+    "replicate_multi_row_candidates": Expected(REPRODUCE, 13014, None, _REPUBLISHED),
+    "replicate_max_rows": Expected(REPRODUCE, 22, None, _REPUBLISHED),
+    "same_version_replicate_candidates": Expected(DOCUMENTED, 1836, 10, _F52_NOTE),
+    "cross_version_rerun_candidates": Expected(DOCUMENTED, 11178, 10, _F52_NOTE),
     "noise_floor_rel_thermal_conductivity": Expected(DOCUMENTED, 0.0369, 0.001, _NOISE_NOTE),
     "noise_floor_rel_dielectric_const_dc": Expected(DOCUMENTED, 0.0084, 0.001, _NOISE_NOTE),
     "noise_floor_rel_tg": Expected(DOCUMENTED, 0.0577, 0.001, _NOISE_NOTE),
@@ -143,7 +153,7 @@ EXPECTED_POLYOMICS: dict[str, Expected] = {
     "feasible_candidates_dev_defaults": Expected(REPRODUCE, 6793),
     "feasible_pct_dev_defaults": Expected(DOCUMENTED, 16.89, 0.02, _FEASIBLE_NOTE, 2),
     "feasible_rows_dev_defaults": Expected(DOCUMENTED, 7317, 0, _FEASIBLE_ROWS_NOTE),
-    "candidate_triple_median_then_filter": Expected(DOCUMENTED, 40426, 0, _ORDER_NOTE),
+    "candidate_triple_median_then_filter": Expected(DOCUMENTED, 40428, 0, _ORDER_NOTE),
 }
 
 # The population each observed quantity is drawn from (D-10). Ids built per
@@ -163,6 +173,13 @@ POPULATIONS: dict[str, str] = {
     "multi_tacticity_smiles_without_unknown": ALL_SOURCE_ROWS,
     "multi_tacticity_smiles_unknown_twins": ALL_SOURCE_ROWS,
     "multi_tacticity_canonical_with_unknown": IN_SCOPE_ROWS,
+    "tacticity_empty_in_scope": IN_SCOPE_ROWS,
+    "tacticity_multi_label_canonical": IN_SCOPE_ROWS,
+    "tacticity_resolved_none": EMPTY_TACTICITY_ROWS,
+    "tacticity_resolved_atactic": EMPTY_TACTICITY_ROWS,
+    "tacticity_resolved_isotactic": EMPTY_TACTICITY_ROWS,
+    "tacticity_resolved_syndiotactic": EMPTY_TACTICITY_ROWS,
+    "tacticity_unresolved": EMPTY_TACTICITY_ROWS,
     "multi_tacticity_canonical_without_unknown": IN_SCOPE_ROWS,
     "card_count_73045": ALL_SOURCE_ROWS,
     "check_tc_true": ALL_SOURCE_ROWS,

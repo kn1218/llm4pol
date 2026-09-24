@@ -49,10 +49,12 @@ def repo_root() -> Path:
 #   14 source rows, 23 columns, 10 unique smiles_list;
 #   row 13 excluded as second-monomer (before parsing), row 12 excluded as a
 #   parse failure -> 12 in-scope rows; 7 unique canonical strings (rows 7 and
-#   8 merge; `*OC*` canonicalises to `*CO*`); 9 candidates (`*CC*`/none n=3,
-#   `*CC*`/unknown n=1, `*CC(*)C`/isotactic, `*CC(*)C`/atactic,
-#   `*CC(*)c1ccccc1`/atactic n=2, and four singletons); 2 multi-row
-#   candidates holding 5 rows, max group size 3.
+#   8 merge; `*OC*` canonicalises to `*CO*`); 8 candidates (`*CC*`/none n=4,
+#   `*CC(*)C`/isotactic, `*CC(*)C`/atactic, `*CC(*)c1ccccc1`/atactic n=2, and
+#   four singletons); 2 multi-row candidates holding 6 rows, max group size 4.
+#   Row 6 has no tacticity and ADR-0006 resolves it to `none` from its `*CC*`
+#   twin before the identity is taken, so it joins the `*CC*`/none candidate
+#   instead of forming an `*CC*`/unknown one: 9 candidates before that change.
 # --------------------------------------------------------------------------
 
 _MISSING = None
@@ -175,10 +177,10 @@ def synthetic_root(tmp_path: Path) -> Path:
 
 # --------------------------------------------------------------------------
 # Synthetic candidate table (Phase 3, CONTEXT D-08; RESEARCH F-39, F-40).
-# `load.load` on the synthetic root yields 9 candidates in the writer's exact
+# `load.load` on the synthetic root yields 8 candidates in the writer's exact
 # 49-column shape with the `llm4pol.snapshot` metadata. Status cases the
 # evaluator tests cite (every value invented, none a PolyOmics row):
-#   7ec8cb49ff317efc  `*CC*`/none            TC median 0.32, n 3, std 0.02 -> ok, spread
+#   7ec8cb49ff317efc  `*CC*`/none            TC median 0.315, n 4, std 0.017078 -> ok, spread
 #   b3a635a55e1a6645  `*CC(*)c1ccccc1`/atactic  n 2 -> ok, spread 0.007071
 #   81b997b85ccd2069  `*CO*`/none            TC NaN, n 0 -> missing/value_absent
 #   d24805b4ce4c381c  `*CC(*)F`/none         tg NaN, n 0 -> missing; TC n 1 -> ok, spread null
@@ -212,7 +214,7 @@ SYNTHETIC_EXAMPLE_REQUEST: dict[str, object] = {
 
 @pytest.fixture
 def synthetic_candidates(synthetic_root: Path) -> Path:
-    """``synthetic_root`` after ``load.load``: 9 candidates in ``data/processed/`` (F-39)."""
+    """``synthetic_root`` after ``load.load``: 8 candidates in ``data/processed/`` (F-39)."""
     from llm4pol.data import load
 
     load.load(synthetic_root)

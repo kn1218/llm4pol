@@ -25,7 +25,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from conftest import REPO_ROOT
-from llm4pol.data import fetch, load, snapshot, validate
+from llm4pol.data import fetch, filters, load, snapshot, validate
 from llm4pol.data.schema import DECLARED_FIELDS
 
 
@@ -43,13 +43,14 @@ def test_real_fetch_verifies_pinned_files_without_downloading(
     assert f"verified {snapshot.README_NAME}" in out
 
 
-def test_real_load_writes_95332_rows_and_78676_candidates(real_load: load.LoadResult) -> None:
+def test_real_load_writes_95332_rows_and_78375_candidates(real_load: load.LoadResult) -> None:
+    """78,375 since ADR-0006 resolved 301 empty tacticities from their labelled twins."""
     assert real_load.source_rows == 95335
     assert real_load.source_columns == 259
     assert real_load.excluded_second_monomer == 3
     assert real_load.excluded_parse_failure == 0
     assert real_load.rows_written == 95332
-    assert real_load.candidates == 78676
+    assert real_load.candidates == 78375
 
 
 def test_real_validate_reproduces_source_shape(real_load: load.LoadResult, tmp_path: Path) -> None:
@@ -65,7 +66,7 @@ def test_real_validate_reproduces_source_shape(real_load: load.LoadResult, tmp_p
         in text
     )
     assert (
-        "| unique_candidate_ids | in-scope rows | 78,676 | 78,676 | reproduce | reproduced |"
+        "| unique_candidate_ids | in-scope rows | 78,375 | 78,375 | reproduce | reproduced |"
         in text
     )
 
@@ -82,7 +83,7 @@ def test_real_identity_counts_match_research(real_load: load.LoadResult) -> None
     assert rows["canonical_psmiles"].notna().all()
     assert rows["candidate_id"].notna().all()
     assert rows["canonical_psmiles"].nunique() == 78373
-    assert rows["candidate_id"].nunique() == 78676
+    assert rows["candidate_id"].nunique() == 78375
 
 
 def test_real_parquet_schema_round_trips_with_declared_types(real_load: load.LoadResult) -> None:
@@ -98,11 +99,11 @@ def test_real_candidates_have_unique_ids_and_sizes_sum_to_in_scope_rows(
     real_load: load.LoadResult,
 ) -> None:
     candidates = pd.read_parquet(real_load.candidates_parquet, columns=["candidate_id", "n_rows"])
-    assert candidates["candidate_id"].nunique() == 78676
-    assert len(candidates) == 78676
+    assert candidates["candidate_id"].nunique() == 78375
+    assert len(candidates) == 78375
     assert int(candidates["n_rows"].sum()) == 95332
-    assert int(candidates["n_rows"].max()) == 17
-    assert int((candidates["n_rows"] >= 2).sum()) == 12983
+    assert int(candidates["n_rows"].max()) == 22
+    assert int((candidates["n_rows"] >= 2).sum()) == 13014
 
 
 # --------------------------------------------------------------------------
@@ -184,7 +185,7 @@ DOCUMENTED_README_NUMBERS: dict[str, str] = {
     "spearman_eps_vs_n2_triple": "0.476",
     "readme_window_rows": "1,140",
     "readme_window_pct": "2.62",
-    "multi_tacticity_canonical_with_unknown": "303",
+    "multi_tacticity_canonical_with_unknown": "2",
     "card_count_73045": "not reproducible from any column",
 }
 
@@ -255,7 +256,7 @@ DOCUMENTED_TG_AND_FEASIBLE: dict[str, str] = {
     "tg_rmse_p95": "0.099",
     "tg_rmse_p99": "0.236",
     "tg_rmse_max": "36.3",
-    "candidate_triple_median_then_filter": "40,426",
+    "candidate_triple_median_then_filter": "40,428",
     "feasible_rows_dev_defaults": "7,317",
 }
 
@@ -299,3 +300,25 @@ def test_real_validate_exits_0_and_committed_report_is_byte_identical_to_a_fresh
     committed = snapshot.report_path(REPO_ROOT)
     assert committed.is_file(), committed
     assert report_path.read_bytes() == committed.read_bytes()
+
+
+# --------------------------------------------------------------------------
+# Plan 02-06: the ADR-0006 resolution on the pinned snapshot (D-25, DATA-04)
+# --------------------------------------------------------------------------
+
+
+def test_real_tacticity_resolution_counts_match_adr_0006(real_load: load.LoadResult) -> None:
+    """ADR-0006 Context table: 554 empty in-scope rows -> 312 / 182 / 0 / 0, 60 left unknown."""
+    source = load.read_source(snapshot.csv_path(REPO_ROOT))
+    rows = pd.read_parquet(
+        real_load.rows_parquet, columns=["row_index", "canonical_psmiles", "tacticity"]
+    )
+    counts = filters.tacticity_resolution_counts(source, rows)
+    assert counts.empty_rows == 554
+    assert counts.resolved.get("none", 0) == 312
+    assert counts.resolved.get("atactic", 0) == 182
+    assert counts.resolved.get("isotactic", 0) == 0
+    assert counts.resolved.get("syndiotactic", 0) == 0
+    assert counts.unresolved == 60
+    assert counts.multi_label_canonical == 2
+    assert sum(counts.resolved.values()) + counts.unresolved == counts.empty_rows

@@ -84,10 +84,16 @@ _IDENTITY_INTRO = (
     "Rows with a second monomer are excluded before parsing (homopolymer scope, ADR-0004); "
     "rows whose SMILES RDKit cannot parse are excluded and counted (D-03). "
     "`unique_candidate_ids` is read from the candidate parquet, one row per `candidate_id` "
-    "(D-7). A missing tacticity is the literal `unknown` and stays a separate candidate in "
-    "M1, so a repeat unit that also occurs with a known tacticity gets an `unknown` twin; "
-    "the count with and without those twins is printed (F-39, F-48) and the twins are "
-    "raised for the owner before Phase 3 (R-1). `raw_string_merges` is the number of "
+    "(D-7). An empty `tacticity` takes the label of its twin when the same "
+    "`canonical_psmiles` carries exactly one non-empty label elsewhere in the snapshot; a "
+    "row with no labelled twin, or with more than one distinct labelled twin, keeps the "
+    "literal `unknown`. The rule is a lookup inside this snapshot, never an inference from "
+    "chemistry, and it runs over the whole in-scope frame before the identity is taken. It "
+    "answers the owner question R-1 raised at M1, decided as D-25 and recorded as ADR-0006; "
+    "the resolution table below states each outcome with the population it is drawn from. "
+    "The `multi_tacticity_smiles_*` counts are taken on the source column before the "
+    "resolution, the `multi_tacticity_canonical_*` counts on the in-scope rows after it "
+    "(F-39, F-48). `raw_string_merges` is the number of "
     "distinct `smiles_list` strings that canonicalise to the same repeat unit (F-35)."
 )
 
@@ -247,6 +253,7 @@ def _scope_and_identity(
         )
     by_smiles = filters.multi_tacticity_counts(source)
     by_canonical = filters.multi_tacticity_counts_canonical(rows)
+    resolution = filters.tacticity_resolution_counts(source, rows)
     observed: dict[str, Value] = {
         "second_monomer_rows": second,
         "parse_failures": parse,
@@ -259,7 +266,12 @@ def _scope_and_identity(
         "multi_tacticity_smiles_unknown_twins": by_smiles.unknown_twins,
         "multi_tacticity_canonical_with_unknown": by_canonical.with_unknown,
         "multi_tacticity_canonical_without_unknown": by_canonical.without_unknown,
+        "tacticity_empty_in_scope": resolution.empty_rows,
+        "tacticity_unresolved": resolution.unresolved,
+        "tacticity_multi_label_canonical": resolution.multi_label_canonical,
     }
+    for label in filters.RESOLVED_LABELS:
+        observed[f"tacticity_resolved_{label}"] = resolution.resolved.get(label, 0)
     exclusions = CountTable(
         title="Scope exclusions",
         header=QUANTITY_HEADER,
@@ -283,8 +295,23 @@ def _scope_and_identity(
             ),
         ),
     )
+    resolution_table = CountTable(
+        title="Tacticity resolution (ADR-0006)",
+        header=QUANTITY_HEADER,
+        rows=_count_rows(
+            observed,
+            (
+                "tacticity_empty_in_scope",
+                *(f"tacticity_resolved_{label}" for label in filters.RESOLVED_LABELS),
+                "tacticity_unresolved",
+                "tacticity_multi_label_canonical",
+            ),
+        ),
+    )
     section = Section(
-        title="Scope exclusions and identity", intro=_IDENTITY_INTRO, tables=[exclusions, identity]
+        title="Scope exclusions and identity",
+        intro=_IDENTITY_INTRO,
+        tables=[exclusions, identity, resolution_table],
     )
     return section, observed
 

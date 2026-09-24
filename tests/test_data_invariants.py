@@ -56,22 +56,23 @@ def test_d7_candidate_table_dedups_replicates_before_any_metric(
     """D-7: rows sharing a candidate_id are replicates, grouped before any metric."""
     result = load.load(synthetic_root)
     candidates = pd.read_parquet(result.candidates_parquet)
-    assert len(candidates) == 9
+    assert len(candidates) == 8
     assert candidates["candidate_id"].is_unique
     assert int(candidates["n_rows"].sum()) == 12
     polyethylene_none = candidates[
         (candidates["canonical_psmiles"] == "*CC*") & (candidates["tacticity"] == "none")
     ]
     assert len(polyethylene_none) == 1
-    assert int(polyethylene_none["n_rows"].iloc[0]) == 3
+    # 4, not 3: the empty-tacticity `*CC*` row joins its labelled twin (ADR-0006).
+    assert int(polyethylene_none["n_rows"].iloc[0]) == 4
 
     # The replicate structure is read off the candidate table (plan 02-04).
     structure = replicates.replicate_structure(candidates)
-    assert structure.n_candidates == 9
+    assert structure.n_candidates == 8
     assert structure.n_multi_row == 2
-    assert structure.rows_in_multi_row == 5
-    assert structure.max_rows == 3
-    assert structure.size_histogram == {1: 7, 2: 1, 3: 1}
+    assert structure.rows_in_multi_row == 6
+    assert structure.max_rows == 4
+    assert structure.size_histogram == {1: 6, 2: 1, 4: 1}
 
     # The noise floor accepts only the candidate table, never raw rows.
     rows = pd.read_parquet(result.rows_parquet)
@@ -84,7 +85,7 @@ def test_d7_candidate_table_dedups_replicates_before_any_metric(
     report_path = tmp_path / "report.md"
     assert validate.run(synthetic_root, expected={}, report_path=report_path) == 0
     text = report_path.read_text(encoding="utf-8")
-    assert "| unique_candidate_ids | in-scope rows | 9 |" in text
+    assert "| unique_candidate_ids | in-scope rows | 8 |" in text
     # ... and every noise-floor population is a candidate population.
     noise_tables = [rows_ for header, rows_ in _markdown_tables(text) if header == NOISE_HEADER]
     assert len(noise_tables) == 2, "expected two noise-floor tables"
@@ -167,8 +168,8 @@ def test_noise_floor_values_on_synthetic_are_medians_of_relative_std(
     _, candidates = _loaded(synthetic_root)
     tc = replicates.noise_floor(candidates, ("thermal_conductivity",))["thermal_conductivity"]
     assert tc.n_groups == 2
-    assert tc.median_rel_std == pytest.approx(0.054060, abs=1e-5)
-    assert tc.median_abs_std == pytest.approx(0.0135355, abs=1e-6)
+    assert tc.median_rel_std == pytest.approx(0.049918, abs=1e-5)
+    assert tc.median_abs_std == pytest.approx(0.0120747, abs=1e-6)
     assert 0.0456 <= tc.p90_rel_std <= 0.0625
     density = replicates.noise_floor(candidates, ("density",))["density"]
     assert density.n_groups == 2
@@ -233,12 +234,12 @@ def test_d9_report_states_noise_floor_per_property_with_population(
     text = report_path.read_text(encoding="utf-8")
     assert "## Replicate structure and noise floor" in text
     for line in (
-        "| candidates | in-scope rows | 9 |",
+        "| candidates | in-scope rows | 8 |",
         "| multi-row candidates | in-scope rows | 2 |",
-        "| rows in multi-row candidates | in-scope rows | 5 |",
-        "| max rows per candidate | in-scope rows | 3 |",
-        "| rows per candidate = 1 | candidates | 7 |",
-        "| rows per candidate = 3 | candidates | 1 |",
+        "| rows in multi-row candidates | in-scope rows | 6 |",
+        "| max rows per candidate | in-scope rows | 4 |",
+        "| rows per candidate = 1 | candidates | 6 |",
+        "| rows per candidate = 4 | candidates | 1 |",
         "| same-version replicate candidates | multi-row candidates | 2 |",
         "| cross-version re-run candidates | multi-row candidates | 0 |",
     ):
@@ -276,8 +277,8 @@ def test_real_replicate_structure_and_noise_floor_match_research(
     findings = _findings(capsys.readouterr().out)
     assert code == 0, findings
     expected = {
-        "replicate_multi_row_candidates": ("reproduce", "12,983", "reproduced"),
-        "replicate_max_rows": ("reproduce", "17", "reproduced"),
+        "replicate_multi_row_candidates": ("reproduce", "13,014", "reproduced"),
+        "replicate_max_rows": ("reproduce", "22", "reproduced"),
         "noise_floor_rel_thermal_conductivity": ("documented", "0.0369", "documented"),
         "noise_floor_rel_dielectric_const_dc": ("documented", "0.0084", "documented"),
         "noise_floor_rel_tg": ("documented", "0.0577", "documented"),
@@ -286,8 +287,8 @@ def test_real_replicate_structure_and_noise_floor_match_research(
         "noise_floor_triple_rel_thermal_conductivity": ("documented", "0.0431", "documented"),
         "noise_floor_triple_rel_dielectric_const_dc": ("documented", "0.0112", "documented"),
         "noise_floor_triple_rel_tg": ("documented", "0.0540", "documented"),
-        "same_version_replicate_candidates": ("documented", "1,888", "documented"),
-        "cross_version_rerun_candidates": ("documented", "11,096", "documented"),
+        "same_version_replicate_candidates": ("documented", "1,836", "documented"),
+        "cross_version_rerun_candidates": ("documented", "11,178", "documented"),
     }
     for finding_id, (cls, expected_value, status) in expected.items():
         assert finding_id in findings, finding_id
@@ -327,8 +328,8 @@ def test_readme_ladder_counts_on_synthetic(synthetic_root: Path) -> None:
     assert int((triple & filters.check_tc_mask(rows, reg)).sum()) == 8
 
     # F-61: filter rows then median per candidate is the order the report uses.
-    assert len(filters.candidate_level_triple(rows, reg)) == 5
-    assert len(filters.candidate_level_triple(rows, reg, order="median_then_filter")) == 5
+    assert len(filters.candidate_level_triple(rows, reg)) == 4
+    assert len(filters.candidate_level_triple(rows, reg, order="median_then_filter")) == 4
     with pytest.raises(ValueError, match="order"):
         filters.candidate_level_triple(rows, reg, order="sideways")
 
@@ -381,8 +382,10 @@ def test_multi_tacticity_counts_on_synthetic(synthetic_root: Path) -> None:
     assert by_smiles.with_unknown == 2
     assert by_smiles.without_unknown == 1
     assert by_smiles.unknown_twins == 1
+    # By canonical the counts are taken AFTER the ADR-0006 resolution, so the
+    # `*CC*` unknown twin is gone and only `*CC(*)C` (isotactic and atactic) remains.
     by_canonical = filters.multi_tacticity_counts_canonical(rows)
-    assert by_canonical.with_unknown == 2
+    assert by_canonical.with_unknown == 1
     assert by_canonical.without_unknown == 1
     assert filters.raw_string_merges(rows) == 1
 
@@ -508,10 +511,10 @@ def test_feasible_set_on_synthetic_is_labelled_as_d16_input(
     assert filters.DEV_DEFAULT_EPS_QUANTILE == 0.25
     candidates = filters.candidate_level_triple(rows, reg)
     assert filters.feasible_set(candidates, reg) == filters.FeasibleSet(
-        q25_eps=2.25, tg_min_k=400.0, n_feasible=2, n_population=5, pct=40.0
+        q25_eps=2.2375, tg_min_k=400.0, n_feasible=1, n_population=4, pct=25.0
     )
     triple = filters.readme_triple_mask(rows, reg)
-    assert filters.feasible_rows(rows, triple, reg, q25_eps=2.25, tg_min_k=400.0) == 2
+    assert filters.feasible_rows(rows, triple, reg, q25_eps=2.2375, tg_min_k=400.0) == 1
 
     text = _synthetic_report(synthetic_root, tmp_path)
     section = _sections(text)[
@@ -521,9 +524,9 @@ def test_feasible_set_on_synthetic_is_labelled_as_d16_input(
     assert "development default" in section
     assert (
         "| feasible candidates (eps_dc_median <= Q25 and tg_median >= 400.0 K) | "
-        f"{CANDIDATE_TRIPLE} | 2 |"
+        f"{CANDIDATE_TRIPLE} | 1 |"
     ) in section
-    assert f"Q25 of dielectric_const_dc candidate medians | {CANDIDATE_TRIPLE} | 2.2500" in section
+    assert f"Q25 of dielectric_const_dc candidate medians | {CANDIDATE_TRIPLE} | 2.2375" in section
     assert "threshold =" not in section
 
 
@@ -702,4 +705,6 @@ def test_d11_resolution_counts_sum_to_the_empty_row_population(synthetic_root: P
     empty = int(raw[filters.TACTICITY_COLUMN].isna().sum())
     assert counts.empty_rows == empty == 1
     assert sum(counts.resolved.values()) + counts.unresolved == counts.empty_rows
-    assert counts.multi_label_canonical == 0
+    # `*CC(*)C` occurs isotactic and atactic, so the fixture carries exactly one
+    # repeat unit the rule refuses to resolve from (it has no empty row of its own).
+    assert counts.multi_label_canonical == 1

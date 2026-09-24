@@ -35,6 +35,10 @@ SMILES_COLUMN = "smiles_list"
 CANONICAL_COLUMN = "canonical_psmiles"
 TACTICITY_COLUMN = "tacticity"
 ROW_INDEX_COLUMN = "row_index"
+# The snapshot's tacticity vocabulary (F-38). Listed so the ADR-0006
+# resolution table always carries the same four rows -- a label that no
+# empty row resolved to is published as 0, not omitted.
+RESOLVED_LABELS: tuple[str, ...] = ("none", "atactic", "isotactic", "syndiotactic")
 UUID_COLUMN = "UUID"
 MONOMER_ID_COLUMN = "monomer_ID"
 N_SQUARED = "refractive_index_squared"
@@ -218,8 +222,13 @@ def tacticity_resolution_counts(source_rows: Any, rows: Any) -> TacticityResolut
     row now carries and ``unresolved`` the ones still spelled ``unknown``, so
     the two partition ``empty_rows`` both before and after the call site is
     flipped. ``multi_label_canonical`` counts the distinct ``canonical_psmiles``
-    that carry at least one originally-empty row and two or more distinct
-    non-empty labels -- the rows the rule's own guard leaves ``unknown``.
+    of the in-scope rows carrying two or more distinct non-empty labels: the
+    repeat units the rule's own guard refuses to resolve from, so an empty row
+    of one of them keeps ``unknown``. It is counted over every in-scope repeat
+    unit, not only over those that happen to carry an empty row -- ADR-0006's
+    Context table states 2 on the pinned snapshot, and on that snapshot none of
+    those 2 carries an empty row, so conditioning the count on one would
+    publish 0 and contradict the ADR.
     """
     raw = source_rows.iloc[rows[ROW_INDEX_COLUMN].tolist()]
     source_labels = [
@@ -233,8 +242,7 @@ def tacticity_resolution_counts(source_rows: Any, rows: Any) -> TacticityResolut
     empty_rows = 0
     unresolved = 0
     resolved: dict[str, int] = {}
-    multi_label: set[str] = set()
-    for source_label, key, label in zip(source_labels, canonical, current, strict=True):
+    for source_label, label in zip(source_labels, current, strict=True):
         if source_label != UNKNOWN_TACTICITY:
             continue
         empty_rows += 1
@@ -242,9 +250,8 @@ def tacticity_resolution_counts(source_rows: Any, rows: Any) -> TacticityResolut
             unresolved += 1
         else:
             resolved[label] = resolved.get(label, 0) + 1
-        if len(seen[key]) > 1:
-            multi_label.add(key)
-    return TacticityResolution(empty_rows, resolved, unresolved, len(multi_label))
+    multi_label = sum(1 for labels in seen.values() if len(labels) > 1)
+    return TacticityResolution(empty_rows, resolved, unresolved, multi_label)
 
 
 def raw_string_merges(rows: Any) -> int:

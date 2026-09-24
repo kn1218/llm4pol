@@ -91,9 +91,9 @@ def test_ok_with_spread_when_n_ge_2(synthetic_candidates: Path) -> None:
     frame = _frame(synthetic_candidates)
     first = _one(synthetic_candidates, "7ec8cb49ff317efc", "thermal_conductivity")
     assert first.status == "ok"
-    assert math.isclose(first.value, 0.32, abs_tol=1e-9)
-    assert first.n_replicates == 3
-    assert math.isclose(first.spread, 0.02, abs_tol=1e-6)
+    assert math.isclose(first.value, 0.315, abs_tol=1e-9)
+    assert first.n_replicates == 4
+    assert math.isclose(first.spread, 0.017078, abs_tol=1e-6)
     assert first.unit == "W/(m*K)"
     assert first.value == frame.loc["7ec8cb49ff317efc", "thermal_conductivity_median"]
     assert first.spread == frame.loc["7ec8cb49ff317efc", "thermal_conductivity_std"]
@@ -266,8 +266,10 @@ def test_no_population_filter_is_applied(synthetic_candidates: Path) -> None:
 
 
 def _hundred_batch(root: Path) -> list[tuple[str, list[str]]]:
+    # 9, not 10: the synthetic root yields 8 candidates after ADR-0006, plus
+    # the well-formed absent id. An exact equality by design (Phase 3 SC3/T4).
     ids = [*sorted(_frame(root).index), UNKNOWN_CANDIDATE_ID]
-    assert len(ids) == 10
+    assert len(ids) == 9
     return [(cid, list(THREE_KEYS)) for cid in itertools.islice(itertools.cycle(ids), 100)]
 
 
@@ -284,9 +286,9 @@ def test_batch_of_100_synthetic_entries_returns_300_results_in_request_order(
         (entry.candidate_id, key) for entry in request.batch for key in entry.properties
     ]
     assert {r.status for r in response.results} <= {"ok", "missing"}
-    assert response.cost.evals == 9
+    assert response.cost.evals == 8
     charged = [r.candidate_id for r in response.results if r.cost.evals == 1]
-    assert len(charged) == len(set(charged)) == 9
+    assert len(charged) == len(set(charged)) == 8
     assert UNKNOWN_CANDIDATE_ID not in charged
 
     schema = json.loads(RESPONSE_SCHEMA_PATH.read_text(encoding="utf-8"))
@@ -300,7 +302,7 @@ def test_response_cost_is_the_sum_of_result_costs(synthetic_candidates: Path) ->
     )
     assert response.cost.evals == sum(r.cost.evals for r in response.results)
     assert response.cost.cpu_hours == sum(r.cost.cpu_hours for r in response.results) == 0.0
-    assert response.cost == Cost(9, 0.0)
+    assert response.cost == Cost(8, 0.0)
 
 
 # --------------------------------------------------------------------------

@@ -6,11 +6,12 @@ its two ``*`` polymerisation points kept and stereo retained (D-6), and a
 missing tacticity is the literal ``"unknown"`` so the id is total.
 
 ``observed_labels`` and ``resolve_tacticity`` are the rule ADR-0006 decided:
-an empty tacticity is to take the label of its twin when the same canonical
-repeat unit carries exactly one non-empty label elsewhere in the snapshot. The
-rule needs the whole table, so it will be applied over the in-scope frame by
-``load.add_identity`` before the hash; as of this commit nothing calls it. The
-identity formula and the spelling of a missing value are unchanged either way.
+an empty tacticity takes the label of its twin when the same canonical repeat
+unit carries exactly one non-empty label elsewhere in the snapshot. The rule
+needs the whole table, so ``load.add_identity`` applies it over the in-scope
+frame before the hash, never per row. The identity formula and the spelling of
+a missing value are unchanged; what changed is the tacticity the formula is
+given (charter section 6 unchanged, D-25, D-11).
 """
 
 from __future__ import annotations

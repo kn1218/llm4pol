@@ -150,10 +150,11 @@ def test_loader_excludes_second_monomer_rows_before_parsing_and_counts_parse_fai
     assert len(uuids) == 12
 
 
-def test_loader_maps_missing_tacticity_to_unknown_and_ids_are_total(synthetic_root: Path) -> None:
+def test_loader_resolves_a_missing_tacticity_and_ids_are_total(synthetic_root: Path) -> None:
+    """ADR-0006: u06's empty tacticity takes `none` from its `*CC*` twin; the id stays total."""
     rows = _rows_frame(load.load(synthetic_root))
     assert rows["candidate_id"].notna().all()
-    assert rows.loc[rows["UUID"] == "u06", "tacticity"].tolist() == ["unknown"]
+    assert rows.loc[rows["UUID"] == "u06", "tacticity"].tolist() == ["none"]
     assert rows["candidate_id"].str.fullmatch(ID_PATTERN).all()
 
 
@@ -163,7 +164,7 @@ def test_loader_merges_equivalent_raw_smiles_into_one_candidate(synthetic_root: 
     assert pair["candidate_id"].nunique() == 1
     assert pair["canonical_psmiles"].tolist() == ["*CC(*)c1ccccc1", "*CC(*)c1ccccc1"]
     assert rows.loc[rows["UUID"] == "u11", "canonical_psmiles"].tolist() == ["*CO*"]
-    assert rows["candidate_id"].nunique() == 9
+    assert rows["candidate_id"].nunique() == 8
 
 
 def test_candidate_table_has_median_n_min_max_std_per_property(synthetic_root: Path) -> None:
@@ -180,12 +181,13 @@ def test_candidate_table_has_median_n_min_max_std_per_property(synthetic_root: P
     ]
     assert len(ethylene) == 1
     row = ethylene.iloc[0]
-    assert int(row["n_rows"]) == 3
-    assert float(row["thermal_conductivity_median"]) == pytest.approx(0.32)
+    # Four rows, not three: u06's empty tacticity resolves to `none` (ADR-0006).
+    assert int(row["n_rows"]) == 4
+    assert float(row["thermal_conductivity_median"]) == pytest.approx(0.315)
     assert float(row["thermal_conductivity_min"]) == pytest.approx(0.30)
     assert float(row["thermal_conductivity_max"]) == pytest.approx(0.34)
-    assert float(row["thermal_conductivity_std"]) == pytest.approx(0.02)
-    assert float(row["tg_median"]) == pytest.approx(260.0)
+    assert float(row["thermal_conductivity_std"]) == pytest.approx(0.0170783, abs=1e-7)
+    assert float(row["tg_median"]) == pytest.approx(262.5)
 
     oxymethylene = candidates.loc[
         (candidates["canonical_psmiles"] == "*CO*") & (candidates["tacticity"] == "none")
