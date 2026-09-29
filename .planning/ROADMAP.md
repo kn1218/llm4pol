@@ -200,6 +200,7 @@ The input (problem spec at seed 0, Phase 2 snapshot, the deterministic selector 
   3. `experiments/PREREG-<date>.md` fixing objective form, thresholds, metrics, comparison arms and replicate count exists and its sha256 is committed (charter §13 M6)
 
 **Freezes**: D-16 — objective form, thresholds, metrics and replicate count, via `experiments/PREREG-<date>.md` with committed sha256 (charter §7, §13 M6)
+**Branching (D-30)**: from this phase on, work lands through a phase branch and a pull request whose merge requires the two-platform CI run; set `git.branching_strategy` to `phase` and `git.allow_default_branch_commits` to false at phase entry.
 **Gate**: D-15 (replicate count and multiplicity correction; development default 10 replicates, decided by MDE, Holm) is measured in this phase, and D-16 (objective form and thresholds; development default constrained single, ε ≤ table Q25, Tg ≥ 400 K) is fixed by the owner at pre-registration. Both remain gated until the owner records them; a value that differs from the development default is recorded in `governance/AMENDMENTS.md` (ADR-0005). This roadmap fixes neither. Transition M6→M7 = σ and memorisation share reported + pre-registration sha256 committed; no comparison figure is claimed before that (charter §13).
 **Plans**: TBD
 
