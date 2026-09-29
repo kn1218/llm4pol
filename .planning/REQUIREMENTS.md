@@ -39,7 +39,7 @@ subordinate to the charter (ADR-0002).
 ### Run management (charter §13 M3, §7, §4 A-3, A-6)
 
 - [ ] **RUN-01**: A run has id `<UTC timestamp>-<8 hex>`; `experiments/<run-id>/meta.json` records problem spec, code git sha, prompt versions, provider/model, seed and snapshot hash
-- [ ] **RUN-02**: `ledger.jsonl` is append-only; one event per selection, evaluation, feedback and iteration-close; a rerun gets a new id
+- [ ] **RUN-02**: `ledger.jsonl` is append-only; one event per beam selection, per evaluated candidate and per iteration close, inside `run_opened` and `run_closed`; a rerun gets a new id. The `hypothesis`, `query`, `feedback` and `llm_call` kinds join in M4 and M5 without changing the envelope
 - [ ] **RUN-03**: `resume` continues from the last closed iteration and never records the same `(run_id, iteration, beam)` event twice
 - [ ] **RUN-04**: `replay` regenerates `results.csv` and `run_summary.json` from the ledger alone, byte-identical to the original; the ledger carries the populations the percentiles are taken in (ADR-0008)
 - [ ] **RUN-05**: `usage.json` totals for `evals` and `cpu_hours` equal the ledger sums; tokens and USD are reported separately

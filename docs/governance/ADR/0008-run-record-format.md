@@ -33,7 +33,10 @@ for the log, and the sample the agent sees. Only the sample is paid for.
    recorded `evaluation` events; nothing is carried in memory across a restart.
 2. **The population travels in the ledger.** The `run_opened` event carries, for each named
    population, the objective value and each constraint value of every member as parallel arrays
-   sorted by objective, without candidate identifiers. About 1 MB per ledger, which is untracked.
+   sorted by objective, without candidate identifiers. The research measured 1,089 KiB for the
+   objective values of both populations alone; with the constraint arrays the block is larger, and
+   the measured size is recorded in the Phase 4 evidence rather than asserted here. The ledger is
+   untracked.
    Any metric over the population — including one redefined at the D-16 gate — is computable from the
    ledger alone.
 3. **Two populations, one primary.** `check_tc` (39,454 candidates) is what the loop searches;

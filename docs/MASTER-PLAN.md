@@ -154,7 +154,8 @@ problem spec ─► selector (deterministic | LLM agents) ─► query ─► ta
 **Problem spec.**
 
 ```json
-{"objective": {"property": "thermal_conductivity", "direction": "max"},
+{"schema_version": 1,
+ "objective": {"property": "thermal_conductivity", "direction": "max"},
  "constraints": [{"property": "dielectric_const_dc", "op": "<=", "value": 2.6},
                  {"property": "tg", "op": ">=", "value": 400.0}],
  "form": "constrained_single",
