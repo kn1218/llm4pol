@@ -41,7 +41,7 @@ subordinate to the charter (ADR-0002).
 - [ ] **RUN-01**: A run has id `<UTC timestamp>-<8 hex>`; `experiments/<run-id>/meta.json` records problem spec, code git sha, prompt versions, provider/model, seed and snapshot hash
 - [ ] **RUN-02**: `ledger.jsonl` is append-only; one event per selection, evaluation, feedback and iteration-close; a rerun gets a new id
 - [ ] **RUN-03**: `resume` continues from the last closed iteration and never records the same `(run_id, iteration, beam)` event twice
-- [ ] **RUN-04**: `replay` regenerates `results.csv` from the ledger alone, byte-identical to the original
+- [ ] **RUN-04**: `replay` regenerates `results.csv` and `run_summary.json` from the ledger alone, byte-identical to the original; the ledger carries the populations the percentiles are taken in (ADR-0008)
 - [ ] **RUN-05**: `usage.json` totals for `evals` and `cpu_hours` equal the ledger sums; tokens and USD are reported separately
 - [ ] **RUN-06**: Problem specs validate against `protocol/schemas/problem-spec.json`
 
@@ -52,7 +52,7 @@ subordinate to the charter (ADR-0002).
 - [ ] **LOOP-03**: Four beams `full`, `chem`, `primary`, `random` are built from one query with the same seeded, target-blind stratified sampling rule; `n` per beam is recorded in `results.csv`
 - [ ] **LOOP-04**: A zero-match iteration consumes no budget and is recorded as a `no_match` event
 - [ ] **LOOP-05**: `llm4pol run --selector deterministic` completes a 10-iteration campaign on the laptop in under 5 minutes, and two runs with the same seed produce identical `ledger.jsonl` and `results.csv`
-- [ ] **LOOP-06**: `results.csv` reports per iteration and beam: `n`, `median_tc`, `feasible_frac`, `pct_of_table`, `hits_top10`, `hits_top1`
+- [ ] **LOOP-06**: `results.csv` reports per iteration, beam and population: `n_selected`, `n_ok`, `median_objective`, `feasible_frac`, `n_population`, `pct_of_population`, `hits_top10`, `hits_top1`, as defined in ADR-0008
 
 ### LLM loop (charter §13 M5, §4 A-4, A-5) — gated on D-14
 

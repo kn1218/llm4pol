@@ -1,7 +1,7 @@
 # MASTER-PLAN — LLM4POL charter
 
 - **Status:** Approved
-- **Version:** 1.0
+- **Version:** 1.1 (2026-09-29: §7 run record and §10 run outputs, ADR-0007 and ADR-0008)
 - **Date:** 2026-09-21
 - **Approved by:** owner, on `PROJECT-FOUNDATION-PROPOSAL.md` v0.1 (ADR-0005)
 - **Precedence:** highest source of truth (ADR-0002). GSD artifacts are derived from this file
@@ -177,10 +177,12 @@ problem spec ─► selector (deterministic | LLM agents) ─► query ─► ta
 **Run 기록** (`experiments/<run-id>/`, run-id = `<UTC timestamp>-<8 hex>`).
 
 ```
-meta.json     problem spec, code git sha, prompt versions, provider/model, seed, snapshot hash
-ledger.jsonl  append-only events: selection / evaluation / feedback / iteration-close
-usage.json    tokens, USD, evals, cpu_hours
-results.csv   iteration, beam, n, median_tc, feasible_frac, pct_of_table, hits_top10, hits_top1
+meta.json         problem spec, code git sha, prompt versions, provider/model, seed, snapshot hash
+ledger.jsonl      header line, then append-only events; run_opened carries the populations
+usage.json        tokens, USD, evals, cpu_hours
+results.csv       iteration, beam, population, n_selected, n_ok, median_objective, feasible_frac,
+                  n_population, pct_of_population, hits_top10, hits_top1   (definitions: ADR-0008)
+run_summary.json  completed iterations, per-beam trends, sha256 of ledger.jsonl and results.csv
 ```
 
 `resume`는 마지막 완결 iteration 다음부터; 같은 `(run_id, iteration, beam)` 이벤트는 두 번
@@ -215,7 +217,7 @@ fetch/identity ∥ validate; M2 ∥ M3 (M3는 응답 형식만 필요); M7 ∥ M
 | PolyOmics 스냅샷 (CC BY 4.0) | `data.fetch`, pinned HF revision | `data/raw/polyomics/<rev>/`, `data/processed/polyomics-<rev>.parquet`; `data/MANIFEST-open.sha256`에 해시 | 허용(귀속 필요), 크기 때문에 미커밋 |
 | PoLyInfo 파일 | ADR-0001 | `data/raw/`, `data/MANIFEST.sha256` | **금지** |
 | Validator report | `data.validate` | `docs/audit/polyomics-<rev>-validation.md` (숫자의 권위 문서) | 집계치만 |
-| Run 출력 | `run` | `experiments/<run-id>/` git-ignored | PoLyInfo 유래가 섞이는 M8 전까지는 법적 제약 없음; 정책은 그대로 미커밋 |
+| Run 출력 | `run` | `experiments/<run-id>/`: `meta.json`, `usage.json`, `results.csv`, `run_summary.json` 추적; `ledger.jsonl` git-ignored | 요약본은 커밋 (ADR-0007). PoLyInfo 유래 데이터를 읽는 run(M8 이후)은 디렉터리 전체 미커밋 (ADR-0001) |
 | 프롬프트·스키마 | `protocol/` | 버전 파일 | 커밋 |
 | 사전등록 | 소유자 | `experiments/PREREG-<date>.md` + 커밋된 sha256 | 커밋 |
 

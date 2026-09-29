@@ -165,6 +165,34 @@ Plus the Phase 4 item, also now answered:
 | E | `experiments/` git policy | **Commit the summaries, ignore the ledger** — `meta.json`, `usage.json` and `results.csv` are tracked so a published number can be cited from inside the repository; `ledger.jsonl` stays ignored for size. ADR-0001's wording is corrected in the same change, since its licence reason no longer covers the PolyOmics layer (D-27) |
 </open_for_owner>
 
+<post_research_decisions>
+## Decisions after 04-RESEARCH.md (2026-09-29) — ADR-0007 and ADR-0008 are the authority
+
+Taken by the agent under the owner's delegation of 2026-09-29. Where a line here and an ADR differ,
+the ADR wins.
+
+- **R-1 (D-31, OQ-1).** `run_opened` carries each population as parallel arrays sorted by objective,
+  without ids. `replay` never opens a parquet.
+- **R-2 (D-32, OQ-2).** `results.csv` is long: `iteration, beam, population, n_selected, n_ok,
+  median_objective, feasible_frac, n_population, pct_of_population, hits_top10, hits_top1`. This
+  supersedes the column list in D-04 above. It reports the paid layer only; the matched-set layer is
+  defined in Phase 5 and gets its own file.
+- **R-3 (D-33, OQ-3).** Definitions as tabulated in ADR-0008; thresholds, direction and constraints
+  come from the problem spec in the header, never from a literal.
+- **R-4 (D-26 corrected, D-34, OQ-4).** Primary population `check_tc` = 39,454 candidates; secondary
+  `readme_triple` = 40,212. Values as served.
+- **R-5 (ADR-0007, OQ-5, OQ-10).** Four files tracked per run directory, `ledger.jsonl` ignored;
+  `run_summary.json` is the fifth file and holds the two sha256 values.
+- **R-6 (D-35, OQ-6, OQ-8).** `resume` refuses a different snapshot, registry version or
+  `code_git_sha`, and a torn final line; it repairs nothing.
+- **R-7 (D-36, OQ-9).** One `evaluation` event per candidate; `selection` stays one event per beam.
+- **R-8 (D-38, OQ-7).** `llm4pol.run` owns the selector protocol and ships a plan-file selector
+  (`--selector plan --plan <file>`), a complete feature rather than a stub.
+- **R-9 (OQ-11).** A budget refusal exits 3 and records a `run_closed` event stating the reason.
+- **R-10.** The cache and the budget meter are rebuilt from the ledger on every resume (research
+  spike: 13 of 13 crash points byte-identical, against 7 of 13 with fresh state).
+</post_research_decisions>
+
 <deferred>
 - Selector, beams, tag vocabulary, feedback, memory → Phases 5–6.
 - `evidence_class` / `reference` provenance fields (twin) → revisit at M8 when a second source exists.
