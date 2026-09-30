@@ -27,7 +27,12 @@ findings:
   warning: 7
   info: 7
   total: 15
-status: issues_found
+status: partially_fixed
+fixed_at: 2026-09-30T00:00:00Z
+fixes:
+  fixed: 11
+  skipped: 0
+  deferred: 4
 ---
 
 # Phase 4: Code Review Report
@@ -318,8 +323,40 @@ the live parsed `dict` (population arrays included). It is passed by reference t
 `_drive_iteration` and `_history_before` read for the rest of the run. Freeze it
 (`types.MappingProxyType` with tuple-ised lists) or deep-copy at the selector boundary.
 
+## Fix Log
+
+Fixer: Claude (gsd-code-fixer), 2026-09-30, sequential on the main working tree, one commit per
+finding, each test-first (a test that failed for the stated defect before the fix) and behind
+`pixi run --manifest-path env/pixi.toml check` printing `SUMMARY: 7/7 steps passed`. The pinned
+fixture `tests/fixtures/run/reference-ledger.jsonl` passed the new canonical check byte for byte,
+so no pinned byte or constant was changed. `ledger.py` is now 324 lines and `reduce.py` 399; new
+code went into small modules (`lock`, `atomic`, `records`, `strictschema`, `redaction`).
+
+| Finding | Outcome | Commit | Notes |
+|---|---|---|---|
+| CR-01 | fixed | `fc994e3` | Exclusive OS lock on the ledger for the whole `drive` (`lock.held`: `fcntl.flock` on POSIX, `msvcrt.locking` on Windows at a byte offset past any ledger, so reads and appends in the holder are unaffected; released by the OS on process death). A second `run`/`resume` raises `RunLocked` before anything is read or appended; the CLI exits 6 with `ERROR: run is in use by another process`. `append` reads only the last line and refuses a `seq` that is not tail + 1, an event after `run_closed` and an event of another run. Tested with a real second process holding the lock, its kill, and `drive` and CLI refusal with the ledger bytes unchanged. Ledger records and refusals moved to `records.py` (re-exported by `ledger`) to stay under 400 lines. |
+| WR-01 | fixed | `1ee0ac5` | `parse_float` refuses non-finite values (`1e999`), `parse_int` bounds integers to 64 characters, decoder `ValueError` and `RecursionError` become `StrictJsonError`; `_dumps` encodes inside its `try` (lone surrogate, deep structure); `load_problem_spec` and `PlanSelector.from_file` catch `UnicodeDecodeError`. CLI exits 2 with no traceback for each input. |
+| WR-02 | fixed | `5678ee9` | Header and every event line must equal `canonical_bytes` of what they parse to. The ledger validator counts only an `int` as an integer, because the canonical re-dump keeps `2.0` as `2.0` and would not catch it. The committed fixture passes unchanged. |
+| WR-03 | fixed | `3acdfb9` | `atomic.write_new`: temp file in the same directory, fsync, `os.replace` onto an absent target; a present target is `FileExistsError`, bytes untouched; a failure leaves no temp. Used by `write_outputs` and `write_meta`. The check and replace are two steps; safe because the bytes are ledger-determined and `drive` holds the run lock. `test_the_prohibitions_of_the_plan_hold_in_the_source` now exempts `atomic.py` from the no-replace/unlink/`"wb"` rule and asserts the ledger modules never call `write_new`. |
+| WR-05 | fixed | `c37dbd3` | New `redaction.py` (`config.redact` and `config.REDACTED` re-exported): names are split on camel case and separators, `secret`, `password`, `passwd`, `credential(s)`, `private_key`, `authorization` redact as a segment anywhere, `api_key`, `access`/`signing`/`encryption` key, `token`, `pwd`, `auth`, `bearer` as the end of the name; `tokens`, `max_tokens`, `token_budget`, `key`, `author` survive. String values shaped like an `sk-` key, GitHub, Hugging Face, Google, AWS or Slack token, PEM private-key header or `Bearer` credential are masked. Decision for the owner: a hit is masked (as the name rule always did), not raised as `MetaError`; the `prompt_versions` value pattern the review suggested was not added. The committed run-meta example is unchanged. |
+| WR-06 | fixed | `18d2dcf` | `atomic.fsync_dir` after `ledger.create`, `atomic.write_new` (meta.json and the three outputs) and `create_run_dir`; a no-op on Windows (`DIRECTORY_FSYNC`). Tested by forcing the flag on and recording each call with the directory contents at that moment. `open_run` documents its order and that a crash between steps leaves a directory nothing reuses. |
+| WR-07 | fixed | `dc55dcb` | `RUN_ID_PATTERN` and the run id and timestamp patterns of `ledger-event.json`, `run-meta.json`, `run-summary.json` use `[0-9]`; a test compares the code and schema patterns. `strictschema.validator_class` makes every `pattern` a `re.fullmatch` with `re.ASCII` and is used by the ledger, problem spec, run meta, selection plan and output validators, which also closes the trailing-LF hole for candidate ids, `ts`, `table` and `code_git_sha` without editing the copied `$defs`. |
+| IN-02 | fixed | `8cd8bf4` | `atomic.RecordWriteError` (an `OSError`) for an OS failure in `ledger.create`, `ledger.append` and `write_new`; for an append it names the byte offset a torn line may follow. CLI: exit 5, `ERROR: I/O failure while writing the run record`. Unreadable operator input is still exit 2. |
+| IN-03 | fixed | `8b5b8c7` | `reduce.check_outputs` split out of `write_outputs`; `replay` checks the run directory (closed run) and `--out` for all three files before writing into either; a differing file is exit 4 with nothing written, equal files stay, absent ones are written atomically. |
+| IN-04 | fixed | `dc60e79` | `_git` passes `timeout=GIT_TIMEOUT_SECONDS` (30), a timeout is a `CodeIdentityError`, and the first non-empty stderr line (cut at 160 characters) is in the message. |
+| IN-06 | fixed (partly) | `f9c5483` | The reader refuses a population whose constraint arrays are not the header problem's constraint properties; `reduce._reference` raises `ReduceError` for a missing array. Not added: `run_closed(completed)` after every budget iteration, because eight existing reducer tests use hand-built ledgers that close one iteration under a two-iteration problem; `primary` in the population names was already checked. Evaluation results covering the problem's property keys was not added for the same fixture reason. |
+
+Deferred by the orchestrator, not touched: WR-04, IN-01, IN-05, IN-07.
+
+Behaviour changes to note: two new CLI exit codes (5 I/O failure, 6 run locked) beside the
+D-07/R-9 set 0, 2, 3, 4, documented in the `__main__` docstring; `ledger.append` now refuses an
+out-of-sequence event, so the seq-gap reader test writes its gap as raw bytes; the ledger reader
+rejects non-canonical bytes and float-valued integers, so a hand-edited or CRLF-converted ledger
+that read before is now refused.
+
 ---
 
 _Reviewed: 2026-09-30_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
+_Fixed: 2026-09-30 (Claude, gsd-code-fixer)_
