@@ -1,18 +1,20 @@
 """The import boundary is frozen and its guards are live (D-06, R-1, EVAL-06, A-1, A-2).
 
-``pyproject.toml`` ``[tool.importlinter]`` declares four contracts: the Phase 2
+``pyproject.toml`` ``[tool.importlinter]`` declares five contracts: the Phase 2
 ``llm4pol.data`` contract (D-06 clause 3), A-1 as a ``forbidden`` contract on
 ``llm4pol.evaluate``, A-2 in the optional-layers form (RESEARCH F-22: a
 ``forbidden`` contract errors on an absent *source*, F-19, and a wildcard source
-misses ``loop/__init__.py``, F-21) and the "only ``llm4pol.loop.agents`` may
+misses ``loop/__init__.py``, F-21), the "only ``llm4pol.loop.agents`` may
 import ``llm4pol.llm``" rule with a wildcard source and four ``ignore_imports``
-(F-23). The positive test runs the exact argv the gate runs
+(F-23) and, since Phase 4 (plan 04-01), the ``llm4pol.run`` contract (CONTEXT
+D-06: the package never imports ``llm4pol.loop`` or ``llm4pol.llm``; it lands in
+the commit that creates the package, F-72). The positive test runs the exact argv the gate runs
 (``check.lint_imports_argv()``). A contract that is KEPT because its modules
 are absent is indistinguishable from a vacuous one, so two negative probes
 (RESEARCH Pattern 7) copy ``src/llm4pol`` into ``tmp_path``, add the violating
 module there and prove the contract reports BROKEN with the exact chain --
 never touching the repository tree, which must hold no ``radonpy.py``,
-``loop``, ``llm`` or ``run`` (D-05; CLAUDE.md: a stub is a blocker).
+``loop`` or ``llm`` (D-05; CLAUDE.md: a stub is a blocker).
 """
 
 from __future__ import annotations
@@ -35,6 +37,7 @@ A1_EVALUATE_PREFIX = "A-1: llm4pol.evaluate never imports"
 A2_PREFIX = "A-2:"
 LLM_RULE_PREFIX = "A-1: only llm4pol.loop.agents"
 DATA_PREFIX = "llm4pol.data is independent"
+RUN_PREFIX = "llm4pol.run never imports"
 
 LLM_IGNORE_IMPORTS = [
     "llm4pol.loop.agents -> llm4pol.llm",
@@ -111,7 +114,7 @@ def _write(path: Path, text: str) -> None:
 
 
 # --------------------------------------------------------------------------
-# Test 1: the four contracts are declared with the exact modules
+# Test 1: the five contracts are declared with the exact modules
 # --------------------------------------------------------------------------
 
 
@@ -119,7 +122,7 @@ def test_a1_a2_contracts_are_declared_with_exact_modules() -> None:
     section = _importlinter()
     assert section["root_package"] == "llm4pol"
     assert section["include_external_packages"] is True
-    assert len(section["contracts"]) == 4
+    assert len(section["contracts"]) == 5
 
     a1 = _contract(section, A1_EVALUATE_PREFIX)
     assert a1["type"] == "forbidden"
@@ -142,6 +145,11 @@ def test_a1_a2_contracts_are_declared_with_exact_modules() -> None:
     assert "sklearn" in data["forbidden_modules"]
     assert "llm4pol.evaluate" in data["forbidden_modules"]
 
+    run = _contract(section, RUN_PREFIX)
+    assert run["type"] == "forbidden"
+    assert run["source_modules"] == ["llm4pol.run"]
+    assert run["forbidden_modules"] == ["llm4pol.loop", "llm4pol.llm"]
+
 
 # --------------------------------------------------------------------------
 # Test 2: the gate's own argv reports every contract KEPT
@@ -151,8 +159,8 @@ def test_a1_a2_contracts_are_declared_with_exact_modules() -> None:
 def test_a1_contracts_are_declared_and_kept_by_the_gate_argv() -> None:
     code, output = _run_linter(None, cwd=REPO_ROOT, pythonpath="src")
     assert code == 0, output
-    assert "Contracts: 4 kept, 0 broken." in output, output
-    assert output.count(" KEPT") == 4, output
+    assert "Contracts: 5 kept, 0 broken." in output, output
+    assert output.count(" KEPT") == 5, output
     assert "BROKEN" not in output, output
 
 
@@ -233,5 +241,5 @@ def test_evaluate_package_init_imports_no_backend_and_no_radonpy_stub_exists() -
             assert all("backends" not in alias.name for alias in node.names), ast.dump(node)
 
     assert not (PACKAGE / "evaluate" / "backends" / "radonpy.py").exists()
-    for name in ("loop", "llm", "run"):
+    for name in ("loop", "llm"):
         assert not (PACKAGE / name).exists(), name
