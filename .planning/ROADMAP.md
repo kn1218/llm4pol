@@ -149,7 +149,7 @@ Charter §8: M2 ∥ M3 is permitted (M3 needs only the response format), but ins
   3. `usage.json` totals for `evals` and `cpu_hours` equal the ledger sums and are kept as two separate currencies (charter §13 M3, A-3)
 
 **Freezes**: run record format (`protocol/schemas/ledger-event.json`, `experiments/<run-id>/{meta.json, ledger.jsonl, usage.json, results.csv, run_summary.json}`, columns and definitions per ADR-0008), problem spec (`protocol/schemas/problem-spec.json`), A-3 (two budget currencies) and A-6 (append-only run directory, rerun gets a new id) as ledger tests (charter §7, §13 M3)
-**Plans**: 8/9 plans executed
+**Plans**: 9/9 plans executed
 
 Plans:
 **Wave 1**
@@ -177,7 +177,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 04-09-PLAN.md — Both populations and a resumable, replayable run on the pinned table; the protocol index; `04-EVIDENCE.md`; push and CI on both platforms (wave 6)
+- [x] 04-09-PLAN.md — Both populations and a resumable, replayable run on the pinned table; the protocol index; `04-EVIDENCE.md`; push and CI on both platforms (wave 6)
 
 Plans of one wave share no file. Nine plans rather than five: the plan check blocks a plan at fifteen files, and the run record gained three schemas (D-39).
 
@@ -266,7 +266,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 (ch
 | 1. Foundation | 1/1 | Complete    | 2026-09-22 |
 | 2. Data Foundation | 6/6 | Complete    | 2026-09-24 |
 | 3. Evaluator (table backend) | 3/3 | Complete    | 2026-09-22 |
-| 4. Run Management | 8/9 | In Progress|  |
+| 4. Run Management | 9/9 | In Progress|  |
 | 5. Deterministic End-to-End | 0/? | Not started | - |
 | 6. LLM Loop | 0/? | Not started | - |
 | 7. Variance, Controls, Pre-registration | 0/? | Not started | - |
