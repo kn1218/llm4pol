@@ -65,7 +65,17 @@ from llm4pol.run.ledger import (
     parse_bytes,
     read,
 )
-from llm4pol.run.reduce import COLUMNS, RESULTS_NAME, Reduced, ReduceError, Row, render_csv
+from llm4pol.run.reduce import (
+    COLUMNS,
+    RESULTS_NAME,
+    USAGE_NAME,
+    Reduced,
+    ReduceError,
+    Row,
+    render_csv,
+    render_usage,
+    usage_of,
+)
 from llm4pol.run.selector import PlanError, PlanSelector, Selection, Selector
 
 __all__ = [
@@ -76,6 +86,7 @@ __all__ = [
     "PROVIDER_KEY_NAMES",
     "RESULTS_NAME",
     "RUN_ID_PATTERN",
+    "USAGE_NAME",
     "Budget",
     "Clock",
     "CodeIdentity",
@@ -122,7 +133,9 @@ __all__ = [
     "random_token",
     "read",
     "render_csv",
+    "render_usage",
     "require_run_id",
+    "usage_of",
     "utc_now",
     "validate_meta",
     "write_meta",

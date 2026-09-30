@@ -267,7 +267,10 @@ def test_usage_equals_the_ledger_sums_in_two_currencies(reference: Path) -> None
         problem_variant(), [feasible_population("check_tc", 4)], ids, evaluated, cpu_hours=0.1
     )
     ten = reduce.usage_of(ledger.parse_bytes(raw))
-    assert sum([0.1] * 10) == 0.9999999999999999
+    running = 0.0
+    for _ in range(10):
+        running += 0.1  # a running sum; the built-in `sum` is compensated from Python 3.12 on
+    assert running == 0.9999999999999999
     assert ten["cpu_hours"] == 1.0 and ten["evals"] == 10 and type(ten["evals"]) is int
 
 

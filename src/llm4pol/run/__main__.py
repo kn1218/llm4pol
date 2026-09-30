@@ -1,4 +1,4 @@
-"""``python -m llm4pol.run {run|resume|replay} ...`` (CONTEXT D-07; RUN-01..RUN-04).
+"""``python -m llm4pol.run {run|resume|replay|usage} ...`` (CONTEXT D-07; RUN-01..RUN-05).
 
 ``run --problem <spec> --selector plan --plan <plan> [--root <repo>] [--experiments <dir>]``
 validates the problem and the plan before it creates anything, opens ``experiments/<run id>/``
@@ -8,7 +8,10 @@ with ``meta.json`` and the ledger header, drives the run to its close and prints
 takes the problem from the ledger header and has no option that accepts other code, snapshot or
 registry version. ``replay --run <id> [--experiments <dir>] [--out <dir>]`` regenerates
 ``results.csv`` from ``ledger.jsonl`` alone: it has no way to name a data root and loads neither
-the population code nor a dataframe library.
+the population code nor a dataframe library. ``usage --run <id> [--experiments <dir>]`` prints
+``usage.json`` as the ledger sums it (``evals`` and ``cpu_hours`` apart; ADR-0008 item 7): it
+compares no code version, loads no table, and writes nothing; on an open run it prints the sums of
+what is recorded.
 
 Exit codes:
 
@@ -23,8 +26,8 @@ Exit codes:
 4       a readable ledger that cannot be trusted or continued: a ``seq`` gap, a repeated event
         key, the lifecycle order, a header that names other code, snapshot, registry version or
         selector than the running ones, a recorded selection the selector does not give, or a
-        ``results.csv`` that is not what the ledger reduces to (stdout ``ERROR: ledger integrity
-        check failed``)
+        ``results.csv`` or ``usage.json`` that is not what the ledger yields (stdout ``ERROR:
+        ledger integrity check failed``)
 ======  ==================================================================
 
 Stdout carries one generic line for every refusal; the detail goes to stderr as one line
@@ -137,6 +140,13 @@ def _parser() -> argparse.ArgumentParser:
     )
     replay.add_argument("--out", type=Path, default=None, help="write results.csv under this dir")
     replay.set_defaults(handler=_replay)
+
+    usage = verbs.add_parser("usage", help="print the two budget currencies summed from the ledger")
+    usage.add_argument("--run", required=True, help="the run id")
+    usage.add_argument(
+        "--experiments", type=Path, default=DEFAULT_EXPERIMENTS, help="the runs directory"
+    )
+    usage.set_defaults(handler=_usage)
     return parser
 
 
@@ -219,6 +229,20 @@ def _replay(args: argparse.Namespace) -> int:
             INTEGRITY_LINE,
             _Refused(f"{reduce.RESULTS_NAME} differs from what the ledger reduces to"),
         )
+    return EXIT_OK
+
+
+def _usage(args: argparse.Namespace) -> int:
+    run_dir: Path = args.experiments / ids.require_run_id(args.run)
+    data = reduce.render_usage(read(run_dir / LEDGER_NAME))
+    recorded = run_dir / reduce.USAGE_NAME
+    if recorded.exists() and recorded.read_bytes() != data:
+        return _fail(
+            EXIT_INTEGRITY,
+            INTEGRITY_LINE,
+            _Refused(f"{reduce.USAGE_NAME} differs from what the ledger sums to"),
+        )
+    print(data.decode("utf-8"), end="")
     return EXIT_OK
 
 

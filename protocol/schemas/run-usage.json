@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kn1218/llm4pol/protocol/schemas/run-usage.json",
+  "title": "LLM4POL run usage -- charter section 13 M3 (3), CONTEXT D-04, D-39, invariant A-3",
+  "description": "usage.json of a run: the sums of the recorded evaluation costs. evals (an integer) and cpu_hours (a number) are two budget currencies that are counted apart and never merged into one number (charter section 4 A-3); tokens and usd are provider counts recorded from Phase 6 on and are 0 until then. All five keys are required and the object is closed, so a merged or extra currency is refused. This schema is self-contained (no cross-file reference) because the schema-inventory step validates without a registry. A change that a reported result depends on is a new schema version in a new file (charter section 4 A-5), never an edit of this one once results cite it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "evals", "cpu_hours", "tokens", "usd"],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "evals": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cpu_hours": {
+      "type": "number",
+      "minimum": 0
+    },
+    "tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "usd": {
+      "type": "number",
+      "minimum": 0
+    }
+  }
+}

@@ -472,7 +472,9 @@ def test_reduce_is_a_pure_function_of_the_ledger(
     assert first == reduce.render_csv(reduce.reduce(parsed)) == TRACER_RESULTS_CSV
     assert first.decode("utf-8").splitlines()[0].split(",") == list(reduce.COLUMNS)
     before = (run_dir / "results.csv").read_bytes()
-    assert reduce.write_outputs(run_dir) == {"results.csv": TRACER_RESULTS_SHA256}
+    sums = reduce.write_outputs(run_dir)
+    assert set(sums) == {"results.csv", "usage.json"}
+    assert sums["results.csv"] == TRACER_RESULTS_SHA256
     assert (run_dir / "results.csv").read_bytes() == before  # compared, never rewritten
     (run_dir / "results.csv").write_bytes(before + b"9,x\n")
     with pytest.raises(ledger.LedgerIntegrityError):

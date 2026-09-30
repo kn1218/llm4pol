@@ -19,9 +19,10 @@ is cited from.
 | `run_summary.json` | completed iterations, per-beam trends, the sha256 of `ledger.jsonl` and of `results.csv` | yes |
 
 `meta.json`, `usage.json` and `run_summary.json` each validate against a schema under
-`protocol/schemas/` and carry `schema_version` (D-39). `run-meta.json` exists today; the schemas of
-`usage.json` and `run_summary.json` are added by later plans of the same phase, before the run
-record freezes at the exit of M3.
+`protocol/schemas/` and carry `schema_version` (D-39). `run-meta.json` and `run-usage.json` exist
+today (`usage.json` holds `evals` and `cpu_hours` as two separate sums of the ledger, and `tokens`
+and `usd`, which stay 0 until Phase 6); the schema of `run_summary.json` is added by a later plan of
+the same phase, before the run record freezes at the exit of M3.
 
 ## Why four files are tracked and the ledger is not
 

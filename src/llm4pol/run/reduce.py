@@ -7,17 +7,25 @@ of the ``run_opened`` payload, so ``replay`` re-derives every number from the le
 read from the problem spec in the ledger header; nothing in this module names a property or a
 number (RESEARCH anti-pattern). The definitions are the column table of ADR-0008 item 4.
 
+``usage_of`` sums the recorded evaluation costs into ``usage.json`` (charter section 13 M3 (3)):
+``evals`` as an integer and ``cpu_hours`` with ``math.fsum``, two currencies that no expression in
+this module adds, multiplies or compares (A-3); ``tokens`` and ``usd`` are 0 until Phase 6. The
+mapping is checked against ``protocol/schemas/run-usage.json`` before a file is opened (D-39).
+
 ``render_csv`` writes LF-terminated UTF-8 with floats as ``repr`` and integers as ``str``, so the
 bytes are identical on Windows and Linux (RESEARCH F-27, F-29). The module imports the standard
-library, ``llm4pol.run.ledger``, ``llm4pol.run.config`` and ``llm4pol.evaluate.contract`` only,
-and no dataframe, parquet or array library (RESEARCH F-28, Pattern 4).
+library, ``jsonschema``, ``llm4pol.run.ledger``, ``llm4pol.run.config``, ``llm4pol.run.jsonio`` and
+``llm4pol.evaluate.contract`` only, and no dataframe, parquet or array library (RESEARCH F-28,
+Pattern 4); the only files it opens are the ledger it is given and the two outputs.
 """
 
 from __future__ import annotations
 
 import csv
+import functools
 import hashlib
 import io
+import math
 import operator
 import os
 import statistics
@@ -26,8 +34,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import jsonschema
+from jsonschema.exceptions import best_match
+
 from llm4pol.evaluate.contract import EvalResult
-from llm4pol.run.config import ProblemSpec
+from llm4pol.run.config import SCHEMA_DIR, ProblemSpec
+from llm4pol.run.jsonio import loads_strict, pretty_bytes
 from llm4pol.run.ledger import LEDGER_NAME, Event, Ledger, LedgerIntegrityError, read
 
 COLUMNS: tuple[str, ...] = (
@@ -44,6 +56,9 @@ COLUMNS: tuple[str, ...] = (
     "hits_top1",
 )
 RESULTS_NAME = "results.csv"
+USAGE_NAME = "usage.json"
+USAGE_SCHEMA_PATH = SCHEMA_DIR / "run-usage.json"
+USAGE_SCHEMA_VERSION = 1
 
 # The vocabulary of the problem spec schema: two constraint operators, two directions. What a
 # direction or an operator is compared with always comes from the problem in the ledger header.
@@ -264,6 +279,8 @@ def _cell(value: object) -> str:
     if value is None:
         return ""
     if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ReduceError(f"a non-finite number cannot be written to {RESULTS_NAME}")
         return repr(value)
     return str(value)
 
@@ -278,20 +295,87 @@ def render_csv(reduced: Reduced) -> bytes:
     return buffer.getvalue().encode("utf-8")
 
 
-def write_outputs(run_dir: Path) -> dict[str, str]:
-    """Reduce the ledger of ``run_dir`` and write ``results.csv`` when it is absent.
+def _costs_agree(recorded: Mapping[str, Any], results: Sequence[EvalResult]) -> bool:
+    """The event cost equals the sum of its result costs, currency by currency.
 
-    A file that is present must hold the same bytes, else ``LedgerIntegrityError``; nothing is
-    ever overwritten. Returns the sha256 by file name.
+    The evaluator adds ``cpu_hours`` as a running float sum, ``fsum`` is exact, so the hours agree
+    to a relative 1e-12 rather than bit for bit; ``evals`` are integers and agree exactly.
     """
-    data = render_csv(reduce(read(run_dir / LEDGER_NAME)))
-    target = run_dir / RESULTS_NAME
-    if target.exists():
-        if target.read_bytes() != data:
-            raise LedgerIntegrityError(f"{RESULTS_NAME} differs from what the ledger reduces to")
-    else:
-        with target.open("xb") as fh:
-            fh.write(data)
-            fh.flush()
-            os.fsync(fh.fileno())
-    return {RESULTS_NAME: hashlib.sha256(data).hexdigest()}
+    same_evals = int(recorded["evals"]) == sum(r.cost.evals for r in results)
+    same_hours = math.isclose(
+        float(recorded["cpu_hours"]),
+        math.fsum(r.cost.cpu_hours for r in results),
+        rel_tol=1e-12,
+        abs_tol=1e-15,
+    )
+    return same_evals and same_hours
+
+
+def usage_of(ledger: Ledger) -> dict[str, Any]:
+    """The five keys of ``usage.json``, summed from the ``evaluation`` events of ``ledger``.
+
+    ``evals`` is the integer sum of the recorded result costs and ``cpu_hours`` their ``fsum``;
+    the two are separate currencies and are never combined (A-3, CONTEXT D-04). ``tokens`` and
+    ``usd`` stay 0 and 0.0 until Phase 6 adds the events that carry them. An event whose cost is
+    not the sum of its results raises ``LedgerIntegrityError``.
+    """
+    evals = 0
+    hours: list[float] = []
+    for event in ledger.events:
+        if event.event != "evaluation":
+            continue
+        results = [EvalResult.from_json(item) for item in event.payload["results"]]
+        if not _costs_agree(event.payload["cost"], results):
+            raise LedgerIntegrityError(
+                f"seq {event.seq}: the cost of the evaluation event is not the sum of its results"
+            )
+        evals += sum(r.cost.evals for r in results)
+        hours.extend(r.cost.cpu_hours for r in results)
+    return {
+        "schema_version": USAGE_SCHEMA_VERSION,
+        "evals": evals,
+        "cpu_hours": math.fsum(hours),
+        "tokens": 0,
+        "usd": 0.0,
+    }
+
+
+@functools.cache
+def _usage_validator() -> Any:
+    return jsonschema.Draft202012Validator(
+        loads_strict(USAGE_SCHEMA_PATH.read_text(encoding="utf-8"))
+    )
+
+
+def render_usage(ledger: Ledger) -> bytes:
+    """The bytes of ``usage.json``; ``ReduceError`` when the mapping is not what the schema allows."""
+    usage = usage_of(ledger)
+    error = best_match(_usage_validator().iter_errors(usage))
+    if error is not None:
+        pointer = "/" + "/".join(str(part) for part in error.absolute_path)
+        raise ReduceError(f"usage mapping refused by run-usage.json: {pointer}: {error.message}")
+    return pretty_bytes(usage)
+
+
+def write_outputs(run_dir: Path) -> dict[str, str]:
+    """Reduce the ledger of ``run_dir`` and write ``results.csv`` and ``usage.json`` if absent.
+
+    Both are rendered, and the usage mapping is checked against its schema, before a file is
+    opened. A file that is present must hold the same bytes, else ``LedgerIntegrityError``, and
+    that is checked for both before either is written; nothing is ever overwritten. Returns the
+    sha256 by file name.
+    """
+    parsed = read(run_dir / LEDGER_NAME)
+    outputs = {RESULTS_NAME: render_csv(reduce(parsed)), USAGE_NAME: render_usage(parsed)}
+    for name, data in outputs.items():
+        present = run_dir / name
+        if present.exists() and present.read_bytes() != data:
+            raise LedgerIntegrityError(f"{name} differs from what the ledger reduces to")
+    for name, data in outputs.items():
+        target = run_dir / name
+        if not target.exists():
+            with target.open("xb") as fh:
+                fh.write(data)
+                fh.flush()
+                os.fsync(fh.fileno())
+    return {name: hashlib.sha256(data).hexdigest() for name, data in outputs.items()}
