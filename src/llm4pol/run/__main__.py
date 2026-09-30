@@ -17,6 +17,12 @@ version, and loads neither the population code nor a dataframe library. ``usage 
 compares no code version, loads no table, and writes nothing; on an open run it prints the sums of
 what is recorded.
 
+``replay`` and ``usage`` take no lock: they are readers, and a run that another process is
+driving keeps appending while they read. A reader can therefore see a torn final line of a live
+run (exit 2, the record cannot be read as a ledger) or a ledger that no longer matches the files
+the driver wrote a moment before (exit 4). Neither is damage; read again once the run has closed
+(or ``resume`` has returned).
+
 Exit codes:
 
 ======  ==================================================================

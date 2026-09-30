@@ -301,3 +301,9 @@ def test_the_public_append_states_that_the_caller_must_hold_the_lock() -> None:
     assert run_package.append is ledger.append
     doc = " ".join((ledger.append.__doc__ or "").split())
     assert "caller must hold" in doc and "lock.held" in doc  # RR-5: the guard is the caller's
+
+
+def test_the_cli_docstring_says_that_readers_take_no_lock() -> None:
+    doc = " ".join((cli.__doc__ or "").split())
+    assert "``replay`` and ``usage`` take no lock" in doc
+    assert "torn final line of a live run" in doc and "exit 4" in doc and "exit 2" in doc
