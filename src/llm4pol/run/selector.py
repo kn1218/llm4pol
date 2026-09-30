@@ -137,7 +137,7 @@ class PlanSelector:
         """Read ``path`` strictly, then ``from_payload``; any defect is ``PlanError``."""
         try:
             payload = loads_strict(path.read_text(encoding="utf-8"))
-        except StrictJsonError as exc:
+        except (StrictJsonError, UnicodeDecodeError) as exc:
             raise PlanError(f"{path.name}: {exc}") from exc
         return cls.from_payload(payload, problem)
 

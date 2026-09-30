@@ -208,7 +208,7 @@ def load_problem_spec(path: Path) -> ProblemSpec:
     """Read ``path`` strictly, then ``parse_problem_spec``; any defect is ``ProblemSpecError``."""
     try:
         payload = loads_strict(path.read_text(encoding="utf-8"))
-    except StrictJsonError as exc:
+    except (StrictJsonError, UnicodeDecodeError) as exc:
         raise ProblemSpecError(f"{path.name}: {exc}") from exc
     return parse_problem_spec(payload)
 
