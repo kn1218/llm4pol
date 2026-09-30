@@ -148,8 +148,38 @@ Charter §8: M2 ∥ M3 is permitted (M3 needs only the response format), but ins
   2. `replay` regenerates `results.csv` from `ledger.jsonl` alone, byte-identical to the original (charter §13 M3)
   3. `usage.json` totals for `evals` and `cpu_hours` equal the ledger sums and are kept as two separate currencies (charter §13 M3, A-3)
 
-**Freezes**: run record format (`protocol/schemas/ledger-event.json`, `experiments/<run-id>/{meta.json, ledger.jsonl, usage.json, results.csv}`), problem spec (`protocol/schemas/problem-spec.json`), A-3 (two budget currencies) and A-6 (append-only run directory, rerun gets a new id) as ledger tests (charter §7, §13 M3)
-**Plans**: TBD
+**Freezes**: run record format (`protocol/schemas/ledger-event.json`, `experiments/<run-id>/{meta.json, ledger.jsonl, usage.json, results.csv, run_summary.json}`, columns and definitions per ADR-0008), problem spec (`protocol/schemas/problem-spec.json`), A-3 (two budget currencies) and A-6 (append-only run directory, rerun gets a new id) as ledger tests (charter §7, §13 M3)
+**Plans**: 9 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — Record library under the run contract: run id, strict JSON in two byte forms, the problem spec and its schema, the run directory, the ledger and its schema; A-6 and the ledger half of A-3 promoted (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 04-02-PLAN.md — Tracer: problem spec -> `run` -> a schema-valid `meta.json` and a ledger with the populations in `run_opened` -> one evaluation event per candidate -> `replay` reduces `results.csv`, through `python -m llm4pol.run` (wave 2)
+- [ ] 04-03-PLAN.md — The ADR-0007 tracking policy as a pattern block with governance tests that ask git, three documents, and the probe of the run contract (wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 04-04-PLAN.md — Eleven committed examples of the run record in the schema inventory, equal to what the tracer run wrote (wave 3)
+- [ ] 04-05-PLAN.md — `resume` with the cache and the meter rebuilt from the ledger, byte-identical at every event boundary; refusals; the recorded budget refusal with exit 3; ledger integrity (wave 3)
+- [ ] 04-06-PLAN.md — Problem-spec refusal matrix, the schema of `meta.json` on names and types, redaction, `dirty` over the behaviour paths; the two populations shown apart (wave 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 04-07-PLAN.md — Column definitions of ADR-0008 on hand-derived tables; `usage.json` with its schema in two currencies; the verb `usage` (wave 4)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 04-08-PLAN.md — `run_summary.json` with its schema; `replay` over the three reduced files; the committed fixture ledger with pinned hashes; the scanner over every written file (wave 5)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 04-09-PLAN.md — Both populations and a resumable, replayable run on the pinned table; the protocol index; `04-EVIDENCE.md`; push and CI on both platforms (wave 6)
+
+Plans of one wave share no file. Nine plans rather than five: the plan check blocks a plan at fifteen files, and the run record gained three schemas (D-39).
 
 ### Phase 5: Deterministic End-to-End
 
@@ -160,7 +190,7 @@ Charter §8: M2 ∥ M3 is permitted (M3 needs only the response format), but ins
 **Success Criteria** (what must be TRUE) — charter §13 M4:
 
   1. Two runs with the same seed produce identical `ledger.jsonl` and `results.csv` (charter §13 M4)
-  2. All four beams `full`, `chem`, `primary`, `random` record `n ≥ 1` in `results.csv`, with `n`, `median_tc`, `feasible_frac`, `pct_of_table`, `hits_top10`, `hits_top1` per iteration and beam (charter §13 M4, §7)
+  2. All four beams `full`, `chem`, `primary`, `random` record `n_selected ≥ 1` in `results.csv`, with `n_selected`, `n_ok`, `median_objective`, `feasible_frac`, `n_population`, `pct_of_population`, `hits_top10`, `hits_top1` per iteration, beam and population (charter v1.1 §7, §13 M4, ADR-0008)
   3. A 10-iteration campaign finishes in under 5 minutes on the laptop (charter §13 M4)
   4. A zero-match iteration consumes no budget and is recorded as a `no_match` event (charter §13 M4)
 
@@ -236,7 +266,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 (ch
 | 1. Foundation | 1/1 | Complete    | 2026-09-22 |
 | 2. Data Foundation | 6/6 | Complete    | 2026-09-24 |
 | 3. Evaluator (table backend) | 3/3 | Complete    | 2026-09-22 |
-| 4. Run Management | 0/? | Not started | - |
+| 4. Run Management | 0/9 | Not started | - |
 | 5. Deterministic End-to-End | 0/? | Not started | - |
 | 6. LLM Loop | 0/? | Not started | - |
 | 7. Variance, Controls, Pre-registration | 0/? | Not started | - |

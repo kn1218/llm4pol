@@ -221,7 +221,7 @@ or not reproducible on this host). Line ranges are from this session's read.
 | F-22 | The population is obtained without re-implementing a filter: `filters.readme_triple_mask(rows, registry)`, `filters.check_tc_mask(rows, registry)` and `load.build_candidates(rows[mask])` (or `filters.candidate_level_triple(rows, registry)` for the README triple). Reading the 13 needed columns of the rows parquet takes 0.07 s | verified | `[VERIFIED: src/llm4pol/data/filters.py:74-86, 125-137, 150-167; probe]` |
 | F-23 | **The evaluator serves unfiltered medians** ("No population filter of any kind is applied: a candidate outside the README triple or with `check_tc` False still gets its values"). On the 39,454 population the served TC median differs from the filtered median for **5,119** candidates (more than 5 % for 928, more than 20 % for 43; maximum relative difference 4.83). Served `dielectric_const_dc` differs for 6,599 (max absolute 19.9); served `tg` for 629 (max absolute 53,881 K). Served TC reaches 1.284 W/(m K) on two members, where the filtered maximum is 0.910 | verified | `[VERIFIED: src/llm4pol/evaluate/backends/table.py:10-14; probe_population2.py]` |
 | F-24 | Both parquets carry these metadata keys, verbatim: `b"llm4pol.snapshot"`, `b"llm4pol.revision"`, `b"llm4pol.source_rows"`, `b"llm4pol.source_columns"`, `b"llm4pol.excluded_second_monomer"`, `b"llm4pol.excluded_parse_failure"`, `b"llm4pol.source_sha256"`. The last is the sha256 of the pinned CSV: the "snapshot hash" RUN-01 asks for | verified | `[VERIFIED: src/llm4pol/data/load.py:155-163]` |
-| F-25 | Reference values on served medians: check_tc population — TC at 0.25 has 24,497 below (62.0900 %); the 3,945th largest value is 0.298965899; the 395th largest is 0.452962627. README triple — 24,589 below 0.25 (61.1484 %). 39,446 of 39,454 TC values are distinct, so `<` and `<=` differ on at most 8 ties. Feasible under the charter example's thresholds (`dielectric_const_dc <= 2.6`, `tg >= 400.0`) on served values: 5,533 of 39,454 and 5,620 of 40,212. Under the development default (Q25 of filtered medians): Q25 = 2.65038754225 and 6,645 feasible on the check_tc population; 2.6524122727500004 and 6,793 on the README triple | verified | `[VERIFIED: probe_population.py, probe_refsize.py]` |
+| F-25 | Reference values on served medians: check_tc population — TC at 0.25 has 24,497 below (62.0900 %); the 3,945th largest value is 0.298965899; the 395th largest is 0.452962627. README triple — 24,589 below 0.25 (61.1484 %). **39,449** of the 39,454 served TC medians are distinct, so `<` and `<=` differ on at most 5 ties; on the README triple 40,207 of 40,212. (Corrected 2026-09-29 after the plan check: this row first printed 39,446, which is the distinct count of the *filtered* medians - medians over `check_tc`-passing rows only - and belongs to that basis, as 40,204 does on the README triple. Every other number of this row is on served medians and was re-measured unchanged.) Feasible under the charter example's thresholds (`dielectric_const_dc <= 2.6`, `tg >= 400.0`) on served values: 5,533 of 39,454 and 5,620 of 40,212. Under the development default (Q25 of filtered medians): Q25 = 2.65038754225 and 6,645 feasible on the check_tc population; 2.6524122727500004 and 6,793 on the README triple | verified | `[VERIFIED: probe_population.py, probe_refsize.py]` |
 
 ### Byte-identical `results.csv` (Question 3)
 
@@ -939,7 +939,31 @@ forbidden_modules = ["llm4pol.loop", "llm4pol.llm"]
 | A7 | Charter §13 M4's "≤40" means one evaluation event per candidate | F-80, OQ-9 | The event count of Phase 5 differs from the charter's estimate, which is marked "≈" |
 | A8 | `selector` in the header is a name and version string for deterministic selectors; an LLM selector declares itself non-replayable so the sequence check is skipped for it | Answers 1 | Phase 6 cannot resume; design revisited then |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+Resolved 2026-09-29. Every question below has a decision; the ADRs and the decisions log are
+the authority. The original status table and the discussion of each question are kept
+underneath, unchanged, for the record.
+
+| # | Resolved by |
+|---|---|
+| OQ-1 | D-31 (ADR-0008 item 2) |
+| OQ-2 | D-32 (ADR-0008 item 4) |
+| OQ-3 | D-33 (ADR-0008 item 4) |
+| OQ-4 | D-26 as corrected and D-34 (ADR-0008 item 3) |
+| OQ-5 | ADR-0007 |
+| OQ-6 | D-35 (ADR-0008 item 7) |
+| OQ-7 | D-38 (ADR-0008 item 8) |
+| OQ-8 | D-35 (ADR-0008 item 7) |
+| OQ-9 | D-36 (ADR-0008 item 5) |
+| OQ-10 | D-37 (ADR-0008 item 6) |
+| OQ-11 | CONTEXT R-9 |
+| OQ-12 | D-21 |
+| OQ-13 | D-22 |
+| OQ-14 | CONTEXT D-02 and D-03 |
+| OQ-15 | D-23 |
+
+### Original status table (2026-09-29, before the decisions)
 
 Each is either resolved by a CONTEXT decision, left to the planner within a CONTEXT decision, or
 stated as needing the owner.
@@ -962,7 +986,7 @@ stated as needing the owner.
 | OQ-14 | Hash chain | Resolved: D-02, D-03 (none) |
 | OQ-15 | Contract types | Resolved: D-23 |
 
-### OQ-1 Population in the ledger
+### OQ-1 Population in the ledger (RESOLVED: D-31 (ADR-0008 item 2))
 
 - **Known:** RUN-04 says "from the ledger alone"; D-04 puts `n_population` and `pct_of_population`
   in `results.csv`; CI has no real parquet; the reference sizes are measured (F-25 and below).
@@ -978,7 +1002,7 @@ stated as needing the owner.
   can be computed from the same ledger, and the population block is confined to one event kind
   (Pitfall 12). The cost is one long line per ledger, which is untracked.
 
-### OQ-2 Column names
+### OQ-2 Column names (RESOLVED: D-32 (ADR-0008 item 4))
 
 - **Known:** charter §7, verbatim: `results.csv   iteration, beam, n, median_tc, feasible_frac, pct_of_table, hits_top10, hits_top1`.
   CONTEXT D-04, verbatim: `iteration, beam, n, n_population, median_tc, feasible_frac, pct_of_population, hits_top10, hits_top1`.
@@ -988,7 +1012,7 @@ stated as needing the owner.
   the same choice: keeping `results.csv` to one population and printing the second in `replay`'s
   output and the summary leaves the column list as D-04 wrote it.
 
-### OQ-3 Undefined metrics
+### OQ-3 Undefined metrics (RESOLVED: D-33 (ADR-0008 item 4))
 
 - **Known:** F-17, F-60.
 - **Recommendation to put to the owner:** `n` = candidates in the recorded selection; `median_tc`
@@ -998,7 +1022,7 @@ stated as needing the owner.
   `round(0.10 n_population)`-th / `round(0.01 n_population)`-th largest member. Whether a hit must
   also be feasible is the part that depends on D-16.
 
-### OQ-4 Population number and value basis
+### OQ-4 Population number and value basis (RESOLVED: D-26 as corrected and D-34 (ADR-0008 item 3))
 
 - **Known:** F-20, F-21, F-23.
 - **Unclear:** whether D-26's intent ("leaving them in would let the search optimise unconverged NEMD
@@ -1008,7 +1032,7 @@ stated as needing the owner.
   in the distribution of what the loop can actually observe. The evaluator's value semantics were
   frozen at M2; changing them is outside this phase and would need an ADR.
 
-### OQ-5 The form of the D-27 correction
+### OQ-5 The form of the D-27 correction (RESOLVED: ADR-0007)
 
 - **Known:** F-68, F-69. D-27 changes charter §10. ADR numbering must be contiguous; the next number
   is 0007.
@@ -1016,14 +1040,14 @@ stated as needing the owner.
   charter §10 row edited in the same change, and the hand-written `CLAUDE.md` and `README.md` lines
   updated with the owner's approval.
 
-### OQ-6 Torn tail
+### OQ-6 Torn tail (RESOLVED: D-35 (ADR-0008 item 7))
 
 - **Known:** D-03: the check exists "without making a repaired ledger unusable". Removing a torn
   tail shortens the file, which the byte-prefix property forbids for ordinary operation.
 - **Recommendation:** `resume` refuses and reports the offset of the last LF and the number of
   trailing bytes on stderr. Repair is a separate, explicit action that a person takes.
 
-### OQ-7 The stub selection
+### OQ-7 The stub selection (RESOLVED: D-38 (ADR-0008 item 8))
 
 - **Known:** C-16 forbids stubs in production code; D-07 lists `run` as a verb; Phase 5 owns
   `--selector deterministic`.
@@ -1032,20 +1056,20 @@ stated as needing the owner.
   in Phase 4. If the planner prefers to keep the plan-reading selector in `tests/`, the CLI verb
   `run` must still do something complete.
 
-### OQ-8 Code identity on resume
+### OQ-8 Code identity on resume (RESOLVED: D-35 (ADR-0008 item 7))
 
 - **Known:** F-02: the twin refuses. The header has `code_git_sha`.
 - **Recommendation:** `resume` refuses on a different snapshot or registry version and on a
   different `code_git_sha`; `replay` and `usage` do not compare the code sha.
 
-### OQ-9 Evaluation event granularity
+### OQ-9 Evaluation event granularity (RESOLVED: D-36 (ADR-0008 item 5))
 
 - **Known:** F-80 (charter arithmetic suggests per candidate); RUN-03's key is per beam; the spike
   used per beam and works.
 - **Recommendation:** per candidate. It matches the charter's count and a crash inside a beam loses
   at most one candidate. `selection` stays one event per beam with `uniqueItems`.
 
-### OQ-10 `run_summary.json` and the result hash
+### OQ-10 `run_summary.json` and the result hash (RESOLVED: D-37 (ADR-0008 item 6))
 
 - **Known:** D-04 names `run_summary.json`; D-27 tracks three files and does not name it; charter §7
   lists four files and does not name it. D-03 says the hash can be recomputed "from the committed
@@ -1054,7 +1078,7 @@ stated as needing the owner.
   tracked. Whatever is decided, the sha256 of `ledger.jsonl` and of `results.csv` should be written
   into a tracked file, so that a person holding the ledger can check it against the repository.
 
-### OQ-11 Budget exit code
+### OQ-11 Budget exit code (RESOLVED: CONTEXT R-9)
 
 - **Known:** F-43.
 - **Recommendation:** 3, as in `llm4pol.evaluate`, and a `run_closed` event whose payload states the
