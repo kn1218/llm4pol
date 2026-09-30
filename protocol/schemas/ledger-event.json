@@ -1,0 +1,769 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kn1218/llm4pol/protocol/schemas/ledger-event.json",
+  "title": "LLM4POL run ledger line -- charter section 7 (M3 freeze), CONTEXT D-02, R-7, A-3, A-6",
+  "description": "One line of ledger.jsonl: the header (first line) or an event. The header carries the problem, so resume and replay never take it from the command line. An event has the envelope seq, ts, run_id, iteration, event, payload, and one payload rule per event kind; every object is closed. Population arrays are admitted in the run_opened payload only, so no payload the feedback builder reads can carry them (A-4). A cost is exactly evals and cpu_hours, two currencies that are never merged (A-3). This schema is self-contained (no cross-file reference) because the schema-inventory step validates without a registry; $defs/cost and $defs/result are copies of eval-response.json and $defs/problem is the body of problem-spec.json, and tests/test_run_ledger.py compares the copies. The event kinds that Phases 5 and 6 add, and any change a reported result depends on, arrive as a new schema version in a new file (charter section 4 A-5), never as an edit of this one once results cite it.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/header"
+    },
+    {
+      "$ref": "#/$defs/event"
+    }
+  ],
+  "$defs": {
+    "run_id": {
+      "type": "string",
+      "pattern": "^\\d{8}T\\d{6}Z-[0-9a-f]{8}$"
+    },
+    "cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evals",
+        "cpu_hours"
+      ],
+      "properties": {
+        "evals": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cpu_hours": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "property",
+        "status",
+        "value",
+        "unit",
+        "n_replicates",
+        "spread",
+        "backend",
+        "source",
+        "provenance_tier",
+        "cached",
+        "cost"
+      ],
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "property": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "unsupported",
+            "missing",
+            "error"
+          ]
+        },
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "n_replicates": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "spread": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "backend": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance_tier": {
+          "enum": [
+            "md_simulated"
+          ]
+        },
+        "cached": {
+          "type": "boolean"
+        },
+        "cost": {
+          "$ref": "#/$defs/cost"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "ok"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "number"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "n_replicates": {
+                "type": "integer"
+              }
+            },
+            "not": {
+              "required": [
+                "reason"
+              ]
+            }
+          },
+          "else": {
+            "properties": {
+              "value": {
+                "type": "null"
+              },
+              "unit": {
+                "type": "null"
+              },
+              "n_replicates": {
+                "type": "null"
+              },
+              "spread": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "missing"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "reason"
+            ],
+            "properties": {
+              "reason": {
+                "enum": [
+                  "value_absent",
+                  "candidate_unknown"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "error"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "reason"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "unsupported",
+                  "missing",
+                  "error"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "cost": {
+                "properties": {
+                  "evals": {
+                    "const": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cached": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "cost": {
+                "properties": {
+                  "evals": {
+                    "const": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "problem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "objective",
+        "constraints",
+        "form",
+        "budget",
+        "table",
+        "seed"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "objective": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "property",
+            "direction"
+          ],
+          "properties": {
+            "property": {
+              "enum": [
+                "thermal_conductivity",
+                "dielectric_const_dc",
+                "tg",
+                "rg",
+                "r2",
+                "ffv",
+                "sp_ced",
+                "density",
+                "refractive_index"
+              ]
+            },
+            "direction": {
+              "enum": [
+                "max",
+                "min"
+              ]
+            }
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "property",
+              "op",
+              "value"
+            ],
+            "properties": {
+              "property": {
+                "enum": [
+                  "thermal_conductivity",
+                  "dielectric_const_dc",
+                  "tg",
+                  "rg",
+                  "r2",
+                  "ffv",
+                  "sp_ced",
+                  "density",
+                  "refractive_index"
+                ]
+              },
+              "op": {
+                "enum": [
+                  "<=",
+                  ">="
+                ]
+              },
+              "value": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "form": {
+          "description": "`constrained_single` is the only form at M3. `pareto` is reserved for the D-16 gate (objective form, fixed at the Phase 7 pre-registration) and arrives as a new schema version, not as an edit of this enum.",
+          "enum": [
+            "constrained_single"
+          ]
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "iterations",
+            "candidates_per_beam",
+            "beams"
+          ],
+          "properties": {
+            "iterations": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "candidates_per_beam": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "beams": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "table": {
+          "type": "string",
+          "pattern": "^polyomics:general_polymers@[0-9a-f]{8}$"
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "header": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "run_id",
+        "problem",
+        "provenance"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "run_id": {
+          "$ref": "#/$defs/run_id"
+        },
+        "problem": {
+          "$ref": "#/$defs/problem"
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "seed",
+            "snapshot",
+            "registry_version",
+            "selector",
+            "code_git_sha"
+          ],
+          "properties": {
+            "seed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "snapshot": {
+              "type": "string",
+              "pattern": "^polyomics:general_polymers@[0-9a-f]{8}$"
+            },
+            "registry_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "selector": {
+              "type": "string",
+              "minLength": 1
+            },
+            "code_git_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            }
+          }
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seq",
+        "ts",
+        "run_id",
+        "iteration",
+        "event",
+        "payload"
+      ],
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ts": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "run_id": {
+          "$ref": "#/$defs/run_id"
+        },
+        "iteration": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "event": {
+          "enum": [
+            "run_opened",
+            "iteration_opened",
+            "selection",
+            "evaluation",
+            "no_match",
+            "iteration_closed",
+            "run_closed"
+          ]
+        },
+        "payload": {
+          "type": "object"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "event": {
+                "const": "run_opened"
+              }
+            },
+            "required": [
+              "event"
+            ]
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "primary",
+                  "populations"
+                ],
+                "properties": {
+                  "primary": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "populations": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "name",
+                        "objective",
+                        "constraints"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "objective": {
+                          "type": "array",
+                          "items": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        },
+                        "constraints": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "iteration": {
+                "const": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event": {
+                "const": "iteration_opened"
+              }
+            },
+            "required": [
+              "event"
+            ]
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {}
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event": {
+                "const": "selection"
+              }
+            },
+            "required": [
+              "event"
+            ]
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "beam",
+                  "candidates"
+                ],
+                "properties": {
+                  "beam": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "candidates": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{16}$"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event": {
+                "const": "evaluation"
+              }
+            },
+            "required": [
+              "event"
+            ]
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "beam",
+                  "candidate_id",
+                  "results",
+                  "cost"
+                ],
+                "properties": {
+                  "beam": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "candidate_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{16}$"
+                  },
+                  "results": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/$defs/result"
+                    }
+                  },
+                  "cost": {
+                    "$ref": "#/$defs/cost"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event": {
+                "const": "no_match"
+              }
+            },
+            "required": [
+              "event"
+            ]
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "beam"
+                ],
+                "properties": {
+                  "beam": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event": {
+                "const": "iteration_closed"
+              }
+            },
+            "required": [
+              "event"
+            ]
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {}
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event": {
+                "const": "run_closed"
+              }
+            },
+            "required": [
+              "event"
+            ]
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "reason"
+                ],
+                "properties": {
+                  "reason": {
+                    "enum": [
+                      "completed",
+                      "budget_exhausted"
+                    ]
+                  },
+                  "requested": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "remaining": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "if": {
+                  "properties": {
+                    "reason": {
+                      "const": "budget_exhausted"
+                    }
+                  },
+                  "required": [
+                    "reason"
+                  ]
+                },
+                "then": {
+                  "required": [
+                    "requested",
+                    "remaining",
+                    "limit"
+                  ]
+                },
+                "else": {
+                  "properties": {
+                    "requested": false,
+                    "remaining": false,
+                    "limit": false
+                  }
+                }
+              },
+              "iteration": {
+                "const": 0
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
