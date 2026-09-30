@@ -3,18 +3,18 @@ gsd_state_version: "1.0"
 milestone: v1.0
 current_phase: 04
 current_phase_name: Run Management
-current_plan: 8
+current_plan: 9
 status: executing
-stopped_at: Completed 04-07-PLAN.md
-last_updated: "2026-09-30T08:47:15.187Z"
+stopped_at: Completed 04-08-PLAN.md
+last_updated: "2026-09-30T09:00:37.403Z"
 last_activity: 2026-09-30
 last_activity_desc: Phase 04 execution started
-state_head: eb6d6e4ef553003ffd2056bf9af0e491b443e603
+state_head: b117ebccaf4d8b16cc723a7779bcffc3d23c1f15
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 19
-  completed_plans: 17
+  completed_plans: 18
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Charter: docs/MASTER-PLAN.md v1.0 (approved 2026-09-21, ADR-0005) — highest so
 ## Current Position
 
 Phase: 04 (Run Management) — EXECUTING
-Current Plan: 8
+Current Plan: 9
 Total Plans in Phase: 9
 Status: Ready to execute
 Last activity: 2026-09-30 — Phase 04 execution started
@@ -80,6 +80,7 @@ Progress: [████░░░░░░] 38%
 | Phase 04 P05 | 20min | 2 tasks | 11 files |
 | Phase 04 P06 | 14 min | 2 tasks | 5 files |
 | Phase 04 P07 | 12 min | 1 tasks | 12 files |
+| Phase 04 P08 | 11 min | 1 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,8 @@ Recent decisions affecting current work:
 - [Phase 04]: 04-05: exit codes fixed within D-07 and R-9 (2 unreadable record, 3 budget refusal recorded by this call, 4 untrusted ledger, header or selector mismatch); resume on an already closed run exits 0 and appends nothing; RunRefused and SequenceMismatch are LedgerIntegrityError subclasses; verify_replay and SequenceMismatch live in selector.py to keep resume.py under 400 lines — The plan left the codes to the executor for review; the ledger is the only state, so a run cut at 18 event boundaries resumes byte-identically
 - [Phase 04]: 04-06: members takes the problem table and refuses a rows parquet of another snapshot; redact reads key names only (suffix rule) and write_meta redacts before it validates; dirty is read over six behaviour paths
 - [Phase 04]: 04-07: usage cpu_hours compared with event costs to relative 1e-12 (evaluator adds hours as a running sum, usage_of uses fsum); usage verb prints only the integrity line on a differing usage.json; render_csv refuses non-finite floats
+- [Phase 04]: 04-08: summary_of lives in the leaf module summary.py because reduce.py is at the 400-line limit; reduce imports it and holds Outputs, render_outputs, result_sha256 and the three-file write_outputs — reduce.py had 19 free lines and the summary code needed about 70; ledger.py stays untouched at 399
+- [Phase 04]: 04-08: result_sha256 is the sha256 of results.csv, usage.json and run_summary.json end to end, printed last by replay and never stored; replay compares before writing and refuses a differing file with exit 4 — owner note 1 of the plan objective; ADR-0008 item 7, CONTEXT D-03
 
 ### Pending Todos
 
@@ -140,6 +143,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-30T08:47:15.106Z
-Stopped at: Completed 04-07-PLAN.md
+Last session: 2026-09-30T09:00:37.326Z
+Stopped at: Completed 04-08-PLAN.md
 Resume file: None
