@@ -1,0 +1,38 @@
+{
+  "problem": {
+    "budget": {
+      "beams": 2,
+      "candidates_per_beam": 3,
+      "iterations": 1
+    },
+    "constraints": [
+      {
+        "op": "<=",
+        "property": "dielectric_const_dc",
+        "value": 2.6
+      },
+      {
+        "op": ">=",
+        "property": "tg",
+        "value": 400.0
+      }
+    ],
+    "form": "constrained_single",
+    "objective": {
+      "direction": "max",
+      "property": "thermal_conductivity"
+    },
+    "schema_version": 1,
+    "seed": 0,
+    "table": "polyomics:general_polymers@041e5834"
+  },
+  "provenance": {
+    "code_git_sha": "0000000000000000000000000000000000000000",
+    "registry_version": "v1",
+    "seed": 0,
+    "selector": "plan:sha256:099f898b1c67d65e9594e78290fcfadefd6a83f77db86e214627e7b3dd925c2f",
+    "snapshot": "polyomics:general_polymers@041e5834"
+  },
+  "run_id": "20260101T000000Z-00000000",
+  "schema_version": 1
+}

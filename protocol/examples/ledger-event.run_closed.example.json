@@ -1,0 +1,10 @@
+{
+  "event": "run_closed",
+  "iteration": 0,
+  "payload": {
+    "reason": "completed"
+  },
+  "run_id": "20260101T000000Z-00000000",
+  "seq": 9,
+  "ts": "2026-01-01T00:00:00Z"
+}

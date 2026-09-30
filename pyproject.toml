@@ -136,10 +136,17 @@ forbidden_modules = ["llm4pol.loop", "llm4pol.llm"]
 # protocol/examples/ holds the committed instances of the evaluator schemas
 # (charter section 13 M2 (5)): every value in them is an invented synthetic-
 # fixture value, never a data row, and the response example is the evaluator's
-# own output on the synthetic table (tests/test_evaluate_contract.py).
+# own output on the synthetic table (tests/test_evaluate_contract.py). The problem spec and the
+# selection plan examples are the inputs of the tracer run; the ledger and meta examples are what
+# that run wrote under an injected clock, token, code identity and environment
+# (tests/test_run_examples.py compares them with a fresh run).
 [tool.llm4polcheck]
 validated = [
     { name = "property registry v1 (DATA-03, A-7)", instances = "protocol/property-registry_v1.yaml", schema = "protocol/schemas/property-registry.json", required = true },
     { name = "evaluator request example (EVAL-01)", instances = "protocol/examples/eval-request.example.json", schema = "protocol/schemas/eval-request.json", required = true },
     { name = "evaluator response example (EVAL-01)", instances = "protocol/examples/eval-response.example.json", schema = "protocol/schemas/eval-response.json", required = true },
+    { name = "problem spec example (RUN-06)", instances = "protocol/examples/problem-spec.example.json", schema = "protocol/schemas/problem-spec.json", required = true },
+    { name = "selection plan example (ADR-0008 item 8)", instances = "protocol/examples/selection-plan.example.json", schema = "protocol/schemas/selection-plan.json", required = true },
+    { name = "run meta example (RUN-01, D-39)", instances = "protocol/examples/run-meta.example.json", schema = "protocol/schemas/run-meta.json", required = true },
+    { name = "ledger header and event examples (RUN-02)", instances = "protocol/examples/ledger-*.example.json", schema = "protocol/schemas/ledger-event.json", required = true },
 ]

@@ -1,0 +1,22 @@
+{
+  "iterations": [
+    {
+      "beams": [
+        {
+          "beam": "full",
+          "candidates": [
+            "7ec8cb49ff317efc",
+            "d751b16095852737",
+            "b3a635a55e1a6645"
+          ]
+        },
+        {
+          "beam": "chem",
+          "candidates": []
+        }
+      ],
+      "iteration": 1
+    }
+  ],
+  "schema_version": 1
+}

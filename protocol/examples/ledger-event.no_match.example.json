@@ -1,0 +1,10 @@
+{
+  "event": "no_match",
+  "iteration": 1,
+  "payload": {
+    "beam": "chem"
+  },
+  "run_id": "20260101T000000Z-00000000",
+  "seq": 7,
+  "ts": "2026-01-01T00:00:00Z"
+}

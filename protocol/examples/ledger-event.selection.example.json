@@ -1,0 +1,15 @@
+{
+  "event": "selection",
+  "iteration": 1,
+  "payload": {
+    "beam": "full",
+    "candidates": [
+      "7ec8cb49ff317efc",
+      "d751b16095852737",
+      "b3a635a55e1a6645"
+    ]
+  },
+  "run_id": "20260101T000000Z-00000000",
+  "seq": 3,
+  "ts": "2026-01-01T00:00:00Z"
+}

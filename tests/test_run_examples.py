@@ -59,7 +59,9 @@ RUN_RECORD_EXAMPLES = (
     *(_event_example(kind) for kind in EVENT_KINDS),
 )
 FIXTURE_IDS = {PE, PP_ISO, PP_ATA, PS, POM, PVF}
-CANDIDATE_ID_TOKEN = re.compile(r"\b[0-9a-f]{16}\b")
+# An id is a JSON string of 16 hex digits; the quotes keep the scan from reading the fractional
+# digits of a float such as 2.6100000000000003 as one.
+CANDIDATE_ID_TOKEN = re.compile(r'"([0-9a-f]{16})"')
 
 
 def _schema(name: str) -> dict[str, Any]:

@@ -1,0 +1,27 @@
+{
+  "budget": {
+    "beams": 2,
+    "candidates_per_beam": 3,
+    "iterations": 1
+  },
+  "constraints": [
+    {
+      "op": "<=",
+      "property": "dielectric_const_dc",
+      "value": 2.6
+    },
+    {
+      "op": ">=",
+      "property": "tg",
+      "value": 400.0
+    }
+  ],
+  "form": "constrained_single",
+  "objective": {
+    "direction": "max",
+    "property": "thermal_conductivity"
+  },
+  "schema_version": 1,
+  "seed": 0,
+  "table": "polyomics:general_polymers@041e5834"
+}

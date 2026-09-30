@@ -1,0 +1,58 @@
+{
+  "event": "run_opened",
+  "iteration": 0,
+  "payload": {
+    "populations": [
+      {
+        "constraints": {
+          "dielectric_const_dc": [
+            2.6100000000000003,
+            2.25,
+            2.2,
+            2.335
+          ],
+          "tg": [
+            377.5,
+            400.0,
+            450.0,
+            262.5
+          ]
+        },
+        "name": "check_tc",
+        "objective": [
+          0.155,
+          0.18,
+          0.2,
+          0.315
+        ]
+      },
+      {
+        "constraints": {
+          "dielectric_const_dc": [
+            2.6100000000000003,
+            2.25,
+            2.2,
+            2.335
+          ],
+          "tg": [
+            377.5,
+            400.0,
+            450.0,
+            262.5
+          ]
+        },
+        "name": "readme_triple",
+        "objective": [
+          0.155,
+          0.18,
+          0.2,
+          0.315
+        ]
+      }
+    ],
+    "primary": "check_tc"
+  },
+  "run_id": "20260101T000000Z-00000000",
+  "seq": 1,
+  "ts": "2026-01-01T00:00:00Z"
+}
