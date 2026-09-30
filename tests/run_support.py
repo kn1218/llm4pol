@@ -10,6 +10,7 @@ from these constants is byte-identical from one run to the next.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -328,3 +329,155 @@ def cut_run(source_dir: Path, target_experiments: Path, k: int) -> Path:
     (target / "meta.json").write_bytes((source_dir / "meta.json").read_bytes())
     (target / "ledger.jsonl").write_bytes(b"".join(line + b"\n" for line in lines[: k + 1]))
     return target
+
+
+# --------------------------------------------------------------------------
+# Plan 04-07: the column definitions and the two currencies, proven on ledgers built by hand.
+# Like the builders above these import nothing of ``llm4pol.run``.
+# --------------------------------------------------------------------------
+
+# Typed from the derivation of the plan objective (five evaluation events charged 1, 1, 1, 1, 0,
+# 0, 1 make `evals` 5; the table backend costs no compute; no provider is called before Phase 6),
+# not copied from an output: seven lines, 89 bytes, the key separator is a colon and a space.
+REFERENCE_USAGE_JSON = (
+    b"{\n"
+    b'  "cpu_hours": 0.0,\n'
+    b'  "evals": 5,\n'
+    b'  "schema_version": 1,\n'
+    b'  "tokens": 0,\n'
+    b'  "usd": 0.0\n'
+    b"}\n"
+)
+REFERENCE_USAGE_SHA256 = "bb11fcba3db73cf823941bb629dd5827a614f908f7a40ba2f9284e0817787caa"
+
+
+def canonical_line(record: dict[str, Any]) -> bytes:
+    """One ledger line in the canonical form: sorted keys, no spaces, one LF."""
+    return (
+        json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n"
+    ).encode("utf-8")
+
+
+def problem_variant(
+    *,
+    direction: str = "max",
+    eps_max: float = 2.6,
+    tg_min: float = 400.0,
+    iterations: int = 2,
+    candidates_per_beam: int = 3,
+    beams: int = 2,
+) -> dict[str, Any]:
+    """The charter problem with another direction or other thresholds."""
+    problem = charter_problem(iterations, candidates_per_beam, beams)
+    problem["objective"]["direction"] = direction
+    problem["constraints"][0]["value"] = eps_max
+    problem["constraints"][1]["value"] = tg_min
+    return problem
+
+
+def recorded_event_lines(run_dir: Path) -> list[bytes]:
+    """The event lines of a run, each with its LF, header left out."""
+    lines = (run_dir / "ledger.jsonl").read_bytes().split(b"\n")[:-1]
+    return [line + b"\n" for line in lines[1:]]
+
+
+def ledger_under(problem: dict[str, Any], event_lines: list[bytes]) -> bytes:
+    """A header for ``problem`` joined with recorded event lines: the same events, another problem."""
+    return canonical_line(valid_header(problem)) + b"".join(event_lines)
+
+
+def candidate_ids(count: int) -> list[str]:
+    """``count`` distinct well-formed ids that name no table row."""
+    return [f"{index:016x}" for index in range(1, count + 1)]
+
+
+def population_payload(
+    name: str,
+    objective: list[float | None],
+    eps: list[float | None] | None = None,
+    tg: list[float | None] | None = None,
+) -> dict[str, Any]:
+    """A population for the charter problem; the constraint arrays default to feasible values."""
+    size = len(objective)
+    return {
+        "name": name,
+        "objective": list(objective),
+        "constraints": {
+            "dielectric_const_dc": list(eps) if eps is not None else [2.0] * size,
+            "tg": list(tg) if tg is not None else [500.0] * size,
+        },
+    }
+
+
+def feasible_population(name: str, m: int) -> dict[str, Any]:
+    """``m`` members, every one feasible, with objectives 1.0, 2.0, ..., m.0."""
+    return population_payload(name, [float(value) for value in range(1, m + 1)])
+
+
+def _hand_result(
+    candidate: str, key: str, value: float | None, evals: int, cpu_hours: float
+) -> dict[str, Any]:
+    result = valid_result(candidate, key, 0.0 if value is None else value, evals=evals)
+    result["cost"] = valid_cost(evals, cpu_hours)
+    if value is None:
+        result.update(
+            status="missing",
+            value=None,
+            unit=None,
+            n_replicates=None,
+            spread=None,
+            reason="value_absent",
+        )
+    return result
+
+
+def hand_ledger(
+    problem: dict[str, Any],
+    populations: list[dict[str, Any]],
+    selected: list[str],
+    evaluated: dict[str, dict[str, float | None]],
+    *,
+    cpu_hours: float = 0.0,
+    closed: bool = True,
+) -> bytes:
+    """A one-iteration, one-beam ledger built by hand.
+
+    ``evaluated`` maps a selected candidate to its value per property (``None`` is a ``missing``
+    result); a selected candidate that is absent from it has no evaluation event. The first result
+    that has a value carries the charge of the event: one evaluation and ``cpu_hours``.
+    """
+    events: list[tuple[str, int, dict[str, Any]]] = [
+        ("run_opened", 0, {"primary": populations[0]["name"], "populations": populations}),
+        ("iteration_opened", 1, {}),
+        ("selection", 1, {"beam": "full", "candidates": list(selected)}),
+    ]
+    for candidate in selected:
+        if candidate not in evaluated:
+            continue
+        results = []
+        charged = False
+        for key, value in evaluated[candidate].items():
+            pays = value is not None and not charged
+            charged = charged or pays
+            results.append(
+                _hand_result(candidate, key, value, 1 if pays else 0, cpu_hours if pays else 0.0)
+            )
+        events.append(
+            (
+                "evaluation",
+                1,
+                {
+                    "beam": "full",
+                    "candidate_id": candidate,
+                    "results": results,
+                    "cost": valid_cost(1 if charged else 0, cpu_hours if charged else 0.0),
+                },
+            )
+        )
+    if closed:
+        events.append(("iteration_closed", 1, {}))
+        events.append(("run_closed", 0, {"reason": "completed"}))
+    lines = [canonical_line(valid_header(problem))]
+    for seq, (kind, iteration, payload) in enumerate(events, start=1):
+        lines.append(canonical_line(valid_event(kind, seq, iteration=iteration, payload=payload)))
+    return b"".join(lines)

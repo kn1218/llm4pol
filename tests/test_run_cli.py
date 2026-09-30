@@ -178,6 +178,7 @@ def test_tracer_run_then_replay_through_the_module_entry_point(
         "ledger.jsonl",
         "meta.json",
         "results.csv",
+        "usage.json",
     ]
 
     raw = (tracer.run_dir / ledger.LEDGER_NAME).read_bytes()
