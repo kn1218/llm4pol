@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import inspect
 import json
 import math
+import re
 import shutil
 from pathlib import Path
 from typing import Any
@@ -455,3 +457,23 @@ def test_cli_resume_reads_the_problem_from_the_header(
     keys = [ledger.event_key(e) for e in resumed.events]
     assert len(keys) == len(set(keys))
     assert (cut / reduce.RESULTS_NAME).read_bytes() == REFERENCE_RESULTS_CSV
+
+
+def test_the_prohibitions_of_the_plan_hold_in_the_source() -> None:
+    """No path shortens or rewrites a ledger; ``resume`` has no argument that relaxes a check."""
+    run_package = Path(resume.__file__).parent
+    ledger_text = (run_package / "ledger.py").read_text(encoding="utf-8")
+    assert sorted(set(re.findall(r'_write\(path, "(\w+)"', ledger_text))) == ["ab", "xb"]
+    for module in run_package.glob("*.py"):
+        text = module.read_text(encoding="utf-8")
+        for forbidden in (".truncate(", ".unlink(", "os.remove(", "os.replace(", '"r+b"', '"wb"'):
+            assert forbidden not in text, (module.name, forbidden)
+    assert list(inspect.signature(resume.resume).parameters) == [
+        "run_dir",
+        "root",
+        "selector",
+        "code",
+        "clock",
+    ]
+    resume_text = (run_package / "resume.py").read_text(encoding="utf-8")
+    assert "JsonlCache()" in resume_text and "JsonlCache(path" not in resume_text

@@ -28,7 +28,7 @@ from typing import Any
 
 from llm4pol.evaluate.contract import EvalResult
 from llm4pol.run.config import ProblemSpec
-from llm4pol.run.ledger import LEDGER_NAME, Event, Ledger, read
+from llm4pol.run.ledger import LEDGER_NAME, Event, Ledger, LedgerIntegrityError, read
 
 COLUMNS: tuple[str, ...] = (
     "iteration",
@@ -279,10 +279,19 @@ def render_csv(reduced: Reduced) -> bytes:
 
 
 def write_outputs(run_dir: Path) -> dict[str, str]:
-    """Reduce the ledger of ``run_dir`` and write ``results.csv`` once; the sha256 by file name."""
+    """Reduce the ledger of ``run_dir`` and write ``results.csv`` when it is absent.
+
+    A file that is present must hold the same bytes, else ``LedgerIntegrityError``; nothing is
+    ever overwritten. Returns the sha256 by file name.
+    """
     data = render_csv(reduce(read(run_dir / LEDGER_NAME)))
-    with (run_dir / RESULTS_NAME).open("xb") as fh:
-        fh.write(data)
-        fh.flush()
-        os.fsync(fh.fileno())
+    target = run_dir / RESULTS_NAME
+    if target.exists():
+        if target.read_bytes() != data:
+            raise LedgerIntegrityError(f"{RESULTS_NAME} differs from what the ledger reduces to")
+    else:
+        with target.open("xb") as fh:
+            fh.write(data)
+            fh.flush()
+            os.fsync(fh.fileno())
     return {RESULTS_NAME: hashlib.sha256(data).hexdigest()}

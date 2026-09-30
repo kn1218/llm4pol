@@ -1,22 +1,30 @@
-"""``python -m llm4pol.run {run|replay} ...`` (CONTEXT D-07; RUN-01, RUN-02, RUN-04).
+"""``python -m llm4pol.run {run|resume|replay} ...`` (CONTEXT D-07; RUN-01..RUN-04).
 
 ``run --problem <spec> --selector plan --plan <plan> [--root <repo>] [--experiments <dir>]``
 validates the problem and the plan before it creates anything, opens ``experiments/<run id>/``
 with ``meta.json`` and the ledger header, drives the run to its close and prints ``run_id:``,
-``evals:``, ``cpu_hours:`` and ``results_sha256:``. ``replay --run <id> [--experiments <dir>]
-[--out <dir>]`` regenerates ``results.csv`` from ``ledger.jsonl`` alone: it has no way to name a
-data root and loads neither the population code nor a dataframe library.
+``evals:``, ``cpu_hours:`` and ``results_sha256:``. ``resume --run <id> --selector plan --plan
+<plan> [--root <repo>] [--experiments <dir>]`` continues a recorded run from its ledger alone; it
+takes the problem from the ledger header and has no option that accepts other code, snapshot or
+registry version. ``replay --run <id> [--experiments <dir>] [--out <dir>]`` regenerates
+``results.csv`` from ``ledger.jsonl`` alone: it has no way to name a data root and loads neither
+the population code nor a dataframe library.
 
 Exit codes:
 
 ======  ==================================================================
 0       success
-2       an input defect: an invalid problem, plan or ledger line, a torn ledger, a malformed
-        or unknown run id, an existing run directory, an absent or mismatched table, a
-        ``meta.json`` mapping the schema refuses (stdout ``ERROR: input refused``)
-3       the evaluator's budget refused a request (stdout ``BUDGET: evaluation budget exceeded``)
-4       ``LedgerIntegrityError``, or a ``results.csv`` that is not what the ledger reduces to
-        (stdout ``ERROR: ledger integrity check failed``)
+2       the record cannot be read as a ledger (a torn final line, a line that does not parse or
+        validate) or another input defect: an invalid problem or plan, a malformed or unknown run
+        id, an existing run directory, an absent or mismatched table, a ``meta.json`` mapping the
+        schema refuses (stdout ``ERROR: input refused``)
+3       the evaluation budget refused a request and this call recorded the end of the run
+        (stdout ``BUDGET: evaluation budget exhausted``)
+4       a readable ledger that cannot be trusted or continued: a ``seq`` gap, a repeated event
+        key, the lifecycle order, a header that names other code, snapshot, registry version or
+        selector than the running ones, a recorded selection the selector does not give, or a
+        ``results.csv`` that is not what the ledger reduces to (stdout ``ERROR: ledger integrity
+        check failed``)
 ======  ==================================================================
 
 Stdout carries one generic line for every refusal; the detail goes to stderr as one line
@@ -30,10 +38,10 @@ import hashlib
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from llm4pol.data import snapshot
 from llm4pol.data.registry import RegistryError
-from llm4pol.evaluate.budget import BudgetExceeded
 from llm4pol.run import ids, reduce
 from llm4pol.run.config import (
     CodeIdentityError,
@@ -47,13 +55,16 @@ from llm4pol.run.jsonio import StrictJsonError
 from llm4pol.run.ledger import LEDGER_NAME, LedgerError, LedgerIntegrityError, read
 from llm4pol.run.selector import PlanError, PlanSelector
 
+if TYPE_CHECKING:  # importing `resume` loads the dataframe stack, which `replay` never does
+    from llm4pol.run.resume import Outcome
+
 EXIT_OK = 0
 EXIT_INPUT = 2
 EXIT_BUDGET = 3
 EXIT_INTEGRITY = 4
 
 INPUT_LINE = "ERROR: input refused"
-BUDGET_LINE = "BUDGET: evaluation budget exceeded"
+BUDGET_LINE = "BUDGET: evaluation budget exhausted"
 INTEGRITY_LINE = "ERROR: ledger integrity check failed"
 
 DEFAULT_EXPERIMENTS = snapshot.DEFAULT_ROOT / "experiments"
@@ -109,6 +120,16 @@ def _parser() -> argparse.ArgumentParser:
     )
     run.set_defaults(handler=_run)
 
+    again = verbs.add_parser("resume", help="continue a recorded run from its ledger alone")
+    again.add_argument("--run", required=True, help="the run id")
+    again.add_argument("--selector", choices=("plan",), required=True, help="the selector")
+    again.add_argument("--plan", type=Path, default=None, help="the selection plan (selector plan)")
+    again.add_argument("--root", type=Path, default=snapshot.DEFAULT_ROOT, help="repository root")
+    again.add_argument(
+        "--experiments", type=Path, default=DEFAULT_EXPERIMENTS, help="the runs directory"
+    )
+    again.set_defaults(handler=_resume)
+
     replay = verbs.add_parser("replay", help="regenerate results.csv from the ledger alone")
     replay.add_argument("--run", required=True, help="the run id")
     replay.add_argument(
@@ -141,9 +162,44 @@ def _run(args: argparse.Namespace) -> int:
         outcome = resume.drive(run_dir, root=args.root, selector=selector, clock=ids.utc_now)
     except (population.PopulationError, resume.DriveError) as exc:
         raise _Refused(str(exc)) from exc
+    return _report(outcome)
+
+
+def _resume(args: argparse.Namespace) -> int:
+    from llm4pol.run import population, resume  # deferred: loads the dataframe stack
+
+    run_dir: Path = args.experiments / ids.require_run_id(args.run)
+    recorded = read(run_dir / LEDGER_NAME)  # the problem is the header's (CONTEXT D-02)
+    if args.plan is None:
+        raise _Refused("--plan is required with --selector plan")
+    selector = PlanSelector.from_file(args.plan, recorded.problem)
+    try:
+        outcome = resume.resume(
+            run_dir,
+            root=args.root,
+            selector=selector,
+            code=code_identity(),
+            clock=ids.utc_now,
+        )
+    except (population.PopulationError, resume.DriveError) as exc:
+        raise _Refused(str(exc)) from exc
+    return _report(outcome)
+
+
+def _report(outcome: Outcome) -> int:
+    """Print the cost and the results hash; exit 3 when this call recorded a budget refusal."""
     print(f"evals: {outcome.evals}")
     print(f"cpu_hours: {outcome.cpu_hours!r}")
     print(f"results_sha256: {outcome.results_sha256}")
+    if outcome.status == "budget_exhausted" and outcome.appended:
+        closing = outcome.closing
+        print(BUDGET_LINE)
+        print(
+            f"detail: requested {closing['requested']} evals, {closing['remaining']} remaining "
+            f"of limit {closing['limit']}",
+            file=sys.stderr,
+        )
+        return EXIT_BUDGET
     return EXIT_OK
 
 
@@ -175,8 +231,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         return int(args.handler(args))
     except LedgerIntegrityError as exc:
         return _fail(EXIT_INTEGRITY, INTEGRITY_LINE, exc)
-    except BudgetExceeded as exc:
-        return _fail(EXIT_BUDGET, BUDGET_LINE, exc)
     except _INPUT_ERRORS as exc:
         return _fail(EXIT_INPUT, INPUT_LINE, exc)
 

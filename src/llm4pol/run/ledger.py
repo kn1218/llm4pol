@@ -346,7 +346,8 @@ def _refuse_missing_lf(raw: bytes, where: str) -> None:
         return
     last = raw.rfind(_LF)
     raise TornTail(
-        f"{where}: the final line is not terminated by LF",
+        f"{where}: the final line is not terminated by LF "
+        f"(last LF at byte offset {last}, {len(raw) - last - 1} trailing bytes)",
         last_lf_offset=last,
         trailing_bytes=len(raw) - last - 1,
     )

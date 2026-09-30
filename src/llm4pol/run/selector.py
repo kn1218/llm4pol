@@ -22,6 +22,7 @@ import hashlib
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from itertools import zip_longest
 from pathlib import Path
 from typing import Any, Protocol, cast, runtime_checkable
 
@@ -30,7 +31,7 @@ from jsonschema.exceptions import best_match
 
 from llm4pol.run.config import SCHEMA_DIR, ProblemSpec
 from llm4pol.run.jsonio import StrictJsonError, canonical_bytes, loads_strict
-from llm4pol.run.ledger import Event
+from llm4pol.run.ledger import Event, Ledger, LedgerIntegrityError
 
 PLAN_SCHEMA_PATH = SCHEMA_DIR / "selection-plan.json"
 IDENTITY_PREFIX = "plan:sha256:"
@@ -43,6 +44,10 @@ _CANDIDATE_ID = re.compile(r"[0-9a-f]{16}")
 
 class PlanError(ValueError):
     """A plan the schema or the problem refuses (the message names the JSON pointer)."""
+
+
+class SequenceMismatch(LedgerIntegrityError):
+    """A recorded event sequence that the selector does not reproduce (CONTEXT D-03 item 3)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,3 +153,56 @@ class PlanSelector:
             return self._by_iteration[iteration]
         except KeyError as exc:
             raise PlanError(f"the plan has no iteration {iteration}") from exc
+
+
+def _shape(
+    kind: str, beam: Any = None, candidates: Sequence[str] = (), candidate: Any = None
+) -> tuple[Any, ...]:
+    """What a selector decides about an event: its kind, beam, candidates and candidate."""
+    return (kind, beam, tuple(candidates), candidate)
+
+
+def _recorded_shape(event: Event) -> tuple[Any, ...]:
+    payload = event.payload
+    return _shape(
+        event.event, payload.get("beam"), payload.get("candidates", ()), payload.get("candidate_id")
+    )
+
+
+def _expected(chosen: Sequence[Selection]) -> list[tuple[Any, ...]]:
+    """The events one iteration records for ``chosen``, in order (ADR-0008 item 5)."""
+    shapes = [_shape("iteration_opened")]
+    for selection in chosen:
+        if not selection.candidates:
+            shapes.append(_shape("no_match", selection.beam))
+            continue
+        shapes.append(_shape("selection", selection.beam, selection.candidates))
+        shapes.extend(
+            _shape("evaluation", selection.beam, candidate=c) for c in selection.candidates
+        )
+    shapes.append(_shape("iteration_closed"))
+    return shapes
+
+
+def verify_replay(recorded: Ledger, selector: Selector) -> None:
+    """Each recorded iteration is a prefix of what ``selector`` gives; nothing is appended here.
+
+    The selector is asked for every iteration the ledger opened, given the events recorded before
+    it, and the events of that iteration (a closing ``run_closed`` aside) must be the first events
+    of the sequence it implies: same beams in the same order, same candidates in the same order
+    (CONTEXT D-03 item 3; RESEARCH F-04). ``SequenceMismatch`` names the first difference.
+    """
+    events = recorded.events
+    starts = [i for i, event in enumerate(events) if event.event == "iteration_opened"]
+    for position, start in enumerate(starts):
+        end = starts[position + 1] if position + 1 < len(starts) else len(events)
+        iteration = events[start].iteration
+        found = [_recorded_shape(e) for e in events[start:end] if e.event != "run_closed"]
+        expected = _expected(selector.select(recorded.problem, iteration, tuple(events[:start])))
+        if found != expected[: len(found)]:
+            at = next(i for i, (a, b) in enumerate(zip_longest(found, expected)) if a != b)
+            gives = expected[at] if at < len(expected) else "no further event"
+            raise SequenceMismatch(
+                f"iteration {iteration}: the ledger records {found[at]} at its position {at + 1}, "
+                f"the selector gives {gives}"
+            )

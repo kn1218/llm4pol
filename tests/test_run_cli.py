@@ -359,7 +359,7 @@ def test_replay_returns_4_when_results_csv_holds_other_bytes(
     assert capsys.readouterr().out.splitlines()[-1] == "ERROR: ledger integrity check failed"
 
 
-def test_a_request_beyond_the_evals_limit_exits_3_and_leaves_a_valid_prefix(
+def test_a_request_beyond_the_evals_limit_exits_3_and_records_the_refusal(
     synthetic_candidates: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     plan = copy.deepcopy(TRACER_PLAN)
@@ -383,12 +383,12 @@ def test_a_request_beyond_the_evals_limit_exits_3_and_leaves_a_valid_prefix(
     )
     captured = capsys.readouterr()
     assert code == 3
-    assert captured.out.splitlines()[-1] == "BUDGET: evaluation budget exceeded"
+    assert captured.out.splitlines()[-1] == "BUDGET: evaluation budget exhausted"
     assert captured.err.startswith("detail:")
     (run_dir,) = list(experiments.iterdir())
-    prefix = ledger.read(run_dir / ledger.LEDGER_NAME)
-    assert [e.event for e in prefix.events][-2:] == ["selection", "evaluation"]
-    assert not prefix.closed
+    record = ledger.read(run_dir / ledger.LEDGER_NAME)
+    assert [e.event for e in record.events][-3:] == ["selection", "evaluation", "run_closed"]
+    assert record.closed and record.events[-1].payload["reason"] == "budget_exhausted"
 
 
 def _library_run(root: Path, tmp_path: Path, plan: dict[str, Any] | None = None) -> Path:
@@ -470,8 +470,13 @@ def test_reduce_is_a_pure_function_of_the_ledger(
     first = reduce.render_csv(reduce.reduce(parsed))
     assert first == reduce.render_csv(reduce.reduce(parsed)) == TRACER_RESULTS_CSV
     assert first.decode("utf-8").splitlines()[0].split(",") == list(reduce.COLUMNS)
-    with pytest.raises(FileExistsError):
+    before = (run_dir / "results.csv").read_bytes()
+    assert reduce.write_outputs(run_dir) == {"results.csv": TRACER_RESULTS_SHA256}
+    assert (run_dir / "results.csv").read_bytes() == before  # compared, never rewritten
+    (run_dir / "results.csv").write_bytes(before + b"9,x\n")
+    with pytest.raises(ledger.LedgerIntegrityError):
         reduce.write_outputs(run_dir)
+    assert (run_dir / "results.csv").read_bytes() == before + b"9,x\n"
 
 
 def test_plan_selector_refuses_a_plan_that_its_schema_or_the_budget_refuses(
