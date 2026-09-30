@@ -15,8 +15,9 @@ them against ``protocol/schemas/run-meta.json`` and ``write_meta`` writes the pr
 after validation. A provider key is recorded as the boolean ``provider_key_configured`` decided by
 membership of its name in the environment; no value is read (charter section 12, F-50).
 ``write_meta`` renders ``redact(meta)`` before it validates: the closed schema is the first defence
-(no key of ``meta.json`` can hold an environment value), the key-name rule the second, for the one
-open mapping the schema admits (``prompt_versions``) and for what Phase 6 adds (D-01, F-48).
+(no key of ``meta.json`` can hold an environment value), the key-name and value-shape rules of
+``llm4pol.run.redaction`` the second, for the one open mapping the schema admits
+(``prompt_versions``) and for what Phase 6 adds (D-01, F-48, WR-05).
 """
 
 from __future__ import annotations
@@ -24,7 +25,6 @@ from __future__ import annotations
 import functools
 import math
 import os
-import re
 import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -36,6 +36,8 @@ from jsonschema.exceptions import best_match
 from llm4pol.data.snapshot import DEFAULT_ROOT
 from llm4pol.run import atomic, ids
 from llm4pol.run.jsonio import StrictJsonError, loads_strict, pretty_bytes
+from llm4pol.run.redaction import REDACTED as REDACTED  # noqa: PLC0414  (re-exported)
+from llm4pol.run.redaction import redact as redact  # noqa: PLC0414  (re-exported)
 from llm4pol.run.strictschema import validator_class
 
 SCHEMA_DIR = DEFAULT_ROOT / "protocol" / "schemas"
@@ -49,9 +51,6 @@ PROVIDER_KEY_NAMES: tuple[str, ...] = ("OPENAI_API_KEY", "GEMINI_API_KEY", "CLAU
 
 RUN_EXISTS_MESSAGE = "run exists; use replay"
 
-# The marker of CONTEXT D-01 that stands in for the value of a secret-shaped key name.
-REDACTED = "***REDACTED***"
-
 # The paths that define behaviour: `dirty` is read over these only (RESEARCH Pitfall 9, F-52).
 BEHAVIOUR_PATHS: tuple[str, ...] = (
     "src",
@@ -61,13 +60,6 @@ BEHAVIOUR_PATHS: tuple[str, ...] = (
     "env/pixi.toml",
     "env/pixi.lock",
 )
-
-# The suffix rule of F-48: a singular credential word at the end of the name, after the start or an
-# underscore, case-insensitive. `tokens`, `max_tokens` and `token_budget` are numbers, not secrets.
-_NAME_RULE = re.compile(
-    r"(?:^|_)(?:api_?key|secret|token|password|passwd|credential)$", re.IGNORECASE
-)
-
 
 PARETO_MESSAGE = (
     "/form: 'pareto' is reserved for the D-16 gate (objective form, fixed at the Phase 7 "
@@ -278,22 +270,6 @@ def code_identity(repo: Path = DEFAULT_ROOT) -> CodeIdentity:
     sha = _git(repo, "rev-parse", "HEAD").strip()
     dirty = bool(_git(repo, "status", "--porcelain", "--", *BEHAVIOUR_PATHS).strip())
     return CodeIdentity(sha=sha, dirty=dirty)
-
-
-def redact(value: Any) -> Any:
-    """A copy of ``value`` in which every secret-shaped key name holds ``REDACTED`` (F-48).
-
-    Mappings and lists are followed to any depth (a tuple comes back as a list); the argument is
-    never changed. The rule reads names only, so a number under ``tokens`` survives (Pitfall 10).
-    """
-    if isinstance(value, Mapping):
-        return {
-            key: REDACTED if _NAME_RULE.search(str(key)) else redact(item)
-            for key, item in value.items()
-        }
-    if isinstance(value, list | tuple):
-        return [redact(item) for item in value]
-    return value
 
 
 def provider_key_configured(environ: Mapping[str, str]) -> bool:

@@ -552,6 +552,7 @@ def test_the_static_prohibitions_of_the_plan_hold() -> None:
         "lock.py",
         "population.py",
         "records.py",
+        "redaction.py",
         "reduce.py",
         "resume.py",
         "selector.py",
