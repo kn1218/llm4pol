@@ -174,3 +174,42 @@ def valid_event(
 def one_event_of_each_kind() -> list[dict[str, Any]]:
     """Seven valid events, ``seq`` 1..7, one per kind in the order of ``EVENT_KINDS``."""
     return [valid_event(kind, seq) for seq, kind in enumerate(EVENT_KINDS, start=1)]
+
+
+# --------------------------------------------------------------------------
+# The tracer of plan 04-02: the six fixture candidates of ``conftest._CORE`` and the plan and
+# results the tracer run must produce. The ids are pinned to the candidate table once, by
+# ``test_the_fixture_ids_are_the_candidates_of_the_synthetic_table`` in ``test_run_cli.py``.
+# --------------------------------------------------------------------------
+
+PE = "7ec8cb49ff317efc"  # `*CC*` / none
+PP_ISO = "d751b16095852737"  # `*CC(*)C` / isotactic
+PP_ATA = "c3da5668f5a82772"  # `*CC(*)C` / atactic
+PS = "b3a635a55e1a6645"  # `*CC(*)c1ccccc1` / atactic
+POM = "81b997b85ccd2069"  # `*CO*` / none, no thermal conductivity
+PVF = "d24805b4ce4c381c"  # `*CC(*)F` / none, no Tg
+
+# Iteration 1: beam `full` holds three candidates, beam `chem` matches nothing.
+TRACER_PLAN: dict[str, Any] = {
+    "schema_version": 1,
+    "iterations": [
+        {
+            "iteration": 1,
+            "beams": [
+                {"beam": "full", "candidates": [PE, PP_ISO, PS]},
+                {"beam": "chem", "candidates": []},
+            ],
+        }
+    ],
+}
+
+# Hand-derived from the served medians of the fixture (plan 04-02, objective): 301 bytes, LF only.
+TRACER_RESULTS_CSV = (
+    b"iteration,beam,population,n_selected,n_ok,median_objective,feasible_frac,"
+    b"n_population,pct_of_population,hits_top10,hits_top1\n"
+    b"1,full,check_tc,3,3,0.2,0.3333333333333333,4,50.0,1,1\n"
+    b"1,full,readme_triple,3,3,0.2,0.3333333333333333,4,50.0,1,1\n"
+    b"1,chem,check_tc,0,0,,,4,,0,0\n"
+    b"1,chem,readme_triple,0,0,,,4,,0,0\n"
+)
+TRACER_RESULTS_SHA256 = "bbd59e21275bb7357f83d679ae67ce339dd30c83a126019e833ccff77941be14"
