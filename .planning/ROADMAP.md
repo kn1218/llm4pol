@@ -41,7 +41,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation** - Reproducible development base; one check gate green on both CI platforms (charter M0) (completed 2026-09-22)
 - [x] **Phase 2: Data Foundation** - PolyOmics snapshot pinned, loaded, identified and validated with a numbers-of-record report (charter M1) (completed 2026-09-22)
 - [x] **Phase 3: Evaluator (table backend)** - One evaluator contract with status taxonomy, cache, two-currency budget and provenance (charter M2) (completed 2026-09-22)
-- [ ] **Phase 4: Run Management** - Append-only run records with resume and byte-identical replay (charter M3)
+- [x] **Phase 4: Run Management** - Append-only run records with resume and byte-identical replay (charter M3) (completed 2026-09-30)
 - [ ] **Phase 5: Deterministic End-to-End** - Seed-reproducible 10-iteration four-beam campaign with no LLM (charter M4)
 - [ ] **Phase 6: LLM Loop** - Hypothesis and translator agents through one provider adapter with blind feedback (charter M5, gated D-14)
 - [ ] **Phase 7: Variance, Controls, Pre-registration** - Replicate σ, zero-feedback control, committed pre-registration (charter M6, depends D-15, fixes D-16)
@@ -266,7 +266,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 (ch
 | 1. Foundation | 1/1 | Complete    | 2026-09-22 |
 | 2. Data Foundation | 6/6 | Complete    | 2026-09-24 |
 | 3. Evaluator (table backend) | 3/3 | Complete    | 2026-09-22 |
-| 4. Run Management | 9/9 | In Progress|  |
+| 4. Run Management | 9/9 | Complete    | 2026-09-30 |
 | 5. Deterministic End-to-End | 0/? | Not started | - |
 | 6. LLM Loop | 0/? | Not started | - |
 | 7. Variance, Controls, Pre-registration | 0/? | Not started | - |
