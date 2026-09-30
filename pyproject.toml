@@ -140,7 +140,9 @@ forbidden_modules = ["llm4pol.loop", "llm4pol.llm"]
 # selection plan examples are the inputs of the tracer run; the ledger and meta examples are what
 # that run wrote under an injected clock, token, code identity and environment
 # (tests/test_run_examples.py compares them with a fresh run); the usage example is the
-# usage.json of the reference campaign (tests/test_run_reduce.py).
+# usage.json of the reference campaign (tests/test_run_reduce.py); the summary example is the
+# run_summary.json of the committed fixture ledger tests/fixtures/run/reference-ledger.jsonl
+# (tests/test_run_replay.py).
 [tool.llm4polcheck]
 validated = [
     { name = "property registry v1 (DATA-03, A-7)", instances = "protocol/property-registry_v1.yaml", schema = "protocol/schemas/property-registry.json", required = true },
@@ -151,4 +153,5 @@ validated = [
     { name = "run meta example (RUN-01, D-39)", instances = "protocol/examples/run-meta.example.json", schema = "protocol/schemas/run-meta.json", required = true },
     { name = "ledger header and event examples (RUN-02)", instances = "protocol/examples/ledger-*.example.json", schema = "protocol/schemas/ledger-event.json", required = true },
     { name = "run usage example (RUN-05, D-39)", instances = "protocol/examples/run-usage.example.json", schema = "protocol/schemas/run-usage.json", required = true },
+    { name = "run summary example (RUN-04, D-39)", instances = "protocol/examples/run-summary.example.json", schema = "protocol/schemas/run-summary.json", required = true },
 ]

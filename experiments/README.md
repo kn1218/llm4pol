@@ -19,10 +19,13 @@ is cited from.
 | `run_summary.json` | completed iterations, per-beam trends, the sha256 of `ledger.jsonl` and of `results.csv` | yes |
 
 `meta.json`, `usage.json` and `run_summary.json` each validate against a schema under
-`protocol/schemas/` and carry `schema_version` (D-39). `run-meta.json` and `run-usage.json` exist
-today (`usage.json` holds `evals` and `cpu_hours` as two separate sums of the ledger, and `tokens`
-and `usd`, which stay 0 until Phase 6); the schema of `run_summary.json` is added by a later plan of
-the same phase, before the run record freezes at the exit of M3.
+`protocol/schemas/` and carry `schema_version` (D-39): `run-meta.json`, `run-usage.json` and
+`run-summary.json`. `usage.json` holds `evals` and `cpu_hours` as two separate sums of the ledger,
+and `tokens` and `usd`, which stay 0 until Phase 6. `run_summary.json` holds the status, the
+completed iterations, the primary population, for every beam and population the trend of the
+percentile and of the number of selected candidates with the iteration number of each point (a null
+percentile for an empty beam), and the two hashes. The writer validates each mapping against its
+schema before it opens a file.
 
 ## Why four files are tracked and the ledger is not
 
@@ -46,8 +49,13 @@ and not by reading `.gitignore` as text.
   the recorded events. It refuses a ledger whose header names another snapshot, registry version or
   code version than the running code, and a ledger with a torn final line; it reports the offset and
   repairs nothing (ADR-0008 item 7).
-- `replay` regenerates `results.csv` and `run_summary.json` from the ledger alone, byte-identical to
-  the originals. It does not compare the code version and loads no data table.
+- `replay` regenerates `results.csv`, `usage.json` and `run_summary.json` from the ledger alone,
+  byte-identical to the originals: it writes a file that is absent from a closed run, refuses (exit 4,
+  nothing written) one that differs, writes nothing into an open run, and ends by printing
+  `result_sha256`, the sha256 of the three files laid end to end. It does not compare the code version
+  and loads no data table. `tests/fixtures/run/reference-ledger.jsonl` is the ledger of the reference
+  campaign on the synthetic table (fixture ids and invented values only); its reduced bytes are
+  pinned in `tests/test_run_replay.py`.
 - `meta.json` records the exact prompt versions from `protocol/prompts/` and the exact configuration
   used, so a result can be traced to what produced it.
 - Development runs accumulate. A run whose summary is committed is a record; throwaway runs are

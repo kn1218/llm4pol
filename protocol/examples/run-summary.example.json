@@ -1,0 +1,123 @@
+{
+  "completed_iterations": 2,
+  "ledger_sha256": "bc2370c0eff10b2904a325c597d070d1ee63384ba92fc786d29da7ec3839c457",
+  "primary_population": "check_tc",
+  "results_sha256": "0e31cfc380aaaf9f86a68b5e83986ad34ce57cd3c4704634ea2de840f0512fc6",
+  "run_id": "20260101T000000Z-00000000",
+  "schema_version": 1,
+  "status": "completed",
+  "trends": [
+    {
+      "beam": "full",
+      "count_trend": [
+        {
+          "iteration": 1,
+          "value": 2
+        },
+        {
+          "iteration": 2,
+          "value": 2
+        }
+      ],
+      "percentile_trend": [
+        {
+          "iteration": 1,
+          "value": 75.0
+        },
+        {
+          "iteration": 2,
+          "value": 75.0
+        }
+      ],
+      "population": "check_tc"
+    },
+    {
+      "beam": "full",
+      "count_trend": [
+        {
+          "iteration": 1,
+          "value": 2
+        },
+        {
+          "iteration": 2,
+          "value": 2
+        }
+      ],
+      "percentile_trend": [
+        {
+          "iteration": 1,
+          "value": 75.0
+        },
+        {
+          "iteration": 2,
+          "value": 75.0
+        }
+      ],
+      "population": "readme_triple"
+    },
+    {
+      "beam": "random",
+      "count_trend": [
+        {
+          "iteration": 1,
+          "value": 3
+        }
+      ],
+      "percentile_trend": [
+        {
+          "iteration": 1,
+          "value": 75.0
+        }
+      ],
+      "population": "check_tc"
+    },
+    {
+      "beam": "random",
+      "count_trend": [
+        {
+          "iteration": 1,
+          "value": 3
+        }
+      ],
+      "percentile_trend": [
+        {
+          "iteration": 1,
+          "value": 75.0
+        }
+      ],
+      "population": "readme_triple"
+    },
+    {
+      "beam": "chem",
+      "count_trend": [
+        {
+          "iteration": 2,
+          "value": 0
+        }
+      ],
+      "percentile_trend": [
+        {
+          "iteration": 2,
+          "value": null
+        }
+      ],
+      "population": "check_tc"
+    },
+    {
+      "beam": "chem",
+      "count_trend": [
+        {
+          "iteration": 2,
+          "value": 0
+        }
+      ],
+      "percentile_trend": [
+        {
+          "iteration": 2,
+          "value": null
+        }
+      ],
+      "population": "readme_triple"
+    }
+  ]
+}

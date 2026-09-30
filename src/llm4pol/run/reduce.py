@@ -1,22 +1,21 @@
-"""The reducer: the events of a ledger -> the rows of ``results.csv`` (ADR-0008 item 4; CONTEXT R-2, R-3).
+"""The reducer: the events of a ledger -> ``results.csv``, ``usage.json``, ``run_summary.json``.
 
 ``reduce`` is a pure function of a parsed ``Ledger``: no clock, no file, no table. It returns one
 ``Row`` per ``selection`` or ``no_match`` event, in ledger order, and per population in the order
-of the ``run_opened`` payload, so ``replay`` re-derives every number from the ledger alone
-(RUN-04). The objective key, its direction, the constraint operators and their thresholds are
-read from the problem spec in the ledger header; nothing in this module names a property or a
-number (RESEARCH anti-pattern). The definitions are the column table of ADR-0008 item 4.
+of the ``run_opened`` payload (ADR-0008 item 4; CONTEXT R-2, R-3). The objective key, its direction,
+the constraint operators and their thresholds come from the problem spec in the ledger header;
+nothing here names a property or a number. ``usage_of`` sums the recorded costs: ``evals`` as an
+integer and ``cpu_hours`` with ``math.fsum``, two currencies no expression here adds, multiplies or
+compares (A-3); ``tokens`` and ``usd`` are 0 until Phase 6.
 
-``usage_of`` sums the recorded evaluation costs into ``usage.json`` (charter section 13 M3 (3)):
-``evals`` as an integer and ``cpu_hours`` with ``math.fsum``, two currencies that no expression in
-this module adds, multiplies or compares (A-3); ``tokens`` and ``usd`` are 0 until Phase 6. The
-mapping is checked against ``protocol/schemas/run-usage.json`` before a file is opened (D-39).
-
-``render_csv`` writes LF-terminated UTF-8 with floats as ``repr`` and integers as ``str``, so the
-bytes are identical on Windows and Linux (RESEARCH F-27, F-29). The module imports the standard
-library, ``jsonschema``, ``llm4pol.run.ledger``, ``llm4pol.run.config``, ``llm4pol.run.jsonio`` and
-``llm4pol.evaluate.contract`` only, and no dataframe, parquet or array library (RESEARCH F-28,
-Pattern 4); the only files it opens are the ledger it is given and the two outputs.
+``render_outputs`` is the one rendering for every caller: from the bytes of a ledger it gives the
+bytes of the three files, each mapping checked against its schema before anything is written
+(D-39), and their hashes; ``run_summary.json`` is built by ``llm4pol.run.summary``. Floats are
+``repr`` and integers ``str``, LF only, so the bytes are identical on Windows and Linux (RESEARCH
+F-27, F-29). The module imports the standard library, ``jsonschema`` and the ``llm4pol`` modules
+``evaluate.contract``, ``run.config``, ``run.jsonio``, ``run.ledger`` and ``run.summary``, no
+dataframe, parquet or array library (RESEARCH F-28, Pattern 4); the only files it opens are the
+outputs of ``write_outputs``.
 """
 
 from __future__ import annotations
@@ -29,8 +28,8 @@ import math
 import operator
 import os
 import statistics
-from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import astuple, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -40,7 +39,8 @@ from jsonschema.exceptions import best_match
 from llm4pol.evaluate.contract import EvalResult
 from llm4pol.run.config import SCHEMA_DIR, ProblemSpec
 from llm4pol.run.jsonio import loads_strict, pretty_bytes
-from llm4pol.run.ledger import LEDGER_NAME, Event, Ledger, LedgerIntegrityError, read
+from llm4pol.run.ledger import LEDGER_NAME, Event, Ledger, LedgerIntegrityError, parse_bytes
+from llm4pol.run.summary import summary_of
 
 COLUMNS: tuple[str, ...] = (
     "iteration",
@@ -57,20 +57,16 @@ COLUMNS: tuple[str, ...] = (
 )
 RESULTS_NAME = "results.csv"
 USAGE_NAME = "usage.json"
+SUMMARY_NAME = "run_summary.json"
 USAGE_SCHEMA_PATH = SCHEMA_DIR / "run-usage.json"
+SUMMARY_SCHEMA_PATH = SCHEMA_DIR / "run-summary.json"
 USAGE_SCHEMA_VERSION = 1
 
-# The vocabulary of the problem spec schema: two constraint operators, two directions. What a
-# direction or an operator is compared with always comes from the problem in the ledger header.
-_OPERATORS: dict[str, Callable[[float, float], bool]] = {"<=": operator.le, ">=": operator.ge}
-_AT_LEAST_AS_GOOD: dict[str, Callable[[float, float], bool]] = {
-    "max": operator.ge,
-    "min": operator.le,
-}
-_STRICTLY_WORSE: dict[str, Callable[[float, float], bool]] = {
-    "max": operator.lt,
-    "min": operator.gt,
-}
+# The vocabulary of the problem spec schema; what is compared with comes from the ledger header.
+_Compare = Callable[[float, float], bool]
+_OPERATORS: dict[str, _Compare] = {"<=": operator.le, ">=": operator.ge}
+_AT_LEAST_AS_GOOD: dict[str, _Compare] = {"max": operator.ge, "min": operator.le}
+_STRICTLY_WORSE: dict[str, _Compare] = {"max": operator.lt, "min": operator.gt}
 _BEST_IS_LARGEST: dict[str, bool] = {"max": True, "min": False}
 _TOP10_DIVISOR = 10
 _TOP1_DIVISOR = 100
@@ -97,19 +93,8 @@ class Row:
     hits_top1: int | None
 
     def cells(self) -> tuple[object, ...]:
-        return (
-            self.iteration,
-            self.beam,
-            self.population,
-            self.n_selected,
-            self.n_ok,
-            self.median_objective,
-            self.feasible_frac,
-            self.n_population,
-            self.pct_of_population,
-            self.hits_top10,
-            self.hits_top1,
-        )
+        """The values in the order of ``COLUMNS``, the order the fields are declared in."""
+        return astuple(self)
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,10 +123,6 @@ def _holds(problem: ProblemSpec, values: Mapping[str, float | None]) -> bool:
     return True
 
 
-def _better_first(problem: ProblemSpec, values: Iterable[float]) -> list[float]:
-    return sorted(values, reverse=_BEST_IS_LARGEST[problem.objective.direction])
-
-
 def _reference(problem: ProblemSpec, population: Mapping[str, Any]) -> _Reference:
     objective: Sequence[float | None] = population["objective"]
     constraints: Mapping[str, Sequence[float | None]] = population["constraints"]
@@ -154,7 +135,7 @@ def _reference(problem: ProblemSpec, population: Mapping[str, Any]) -> _Referenc
         cells = {key: array[index] for key, array in constraints.items()}
         if _holds(problem, cells):
             feasible.append(value)
-    ranked = _better_first(problem, feasible)
+    ranked = sorted(feasible, reverse=_BEST_IS_LARGEST[problem.objective.direction])
     thresholds = None
     if ranked:
         m = len(ranked)
@@ -170,17 +151,16 @@ def _reference(problem: ProblemSpec, population: Mapping[str, Any]) -> _Referenc
 
 
 def _references(problem: ProblemSpec, events: Sequence[Event]) -> tuple[_Reference, ...]:
-    for event in events:
-        if event.event == "run_opened":
-            return tuple(_reference(problem, p) for p in event.payload["populations"])
-    return ()
+    opened = [event for event in events if event.event == "run_opened"]
+    return tuple(_reference(problem, p) for p in opened[0].payload["populations"]) if opened else ()
 
 
-def _results_by_candidate(
-    events: Sequence[Event],
-) -> dict[tuple[int, str, str], dict[str, EvalResult]]:
+_ByCandidate = dict[tuple[int, str, str], dict[str, EvalResult]]
+
+
+def _results_by_candidate(events: Sequence[Event]) -> _ByCandidate:
     """The results of every ``evaluation`` event, by (iteration, beam, candidate) and property."""
-    grouped: dict[tuple[int, str, str], dict[str, EvalResult]] = {}
+    grouped: _ByCandidate = {}
     for event in events:
         if event.event != "evaluation":
             continue
@@ -209,7 +189,7 @@ def _row(
     iteration: int,
     beam: str,
     selected: Sequence[str],
-    results: Mapping[tuple[int, str, str], dict[str, EvalResult]],
+    results: _ByCandidate,
     reference: _Reference,
 ) -> Row:
     objective_key = problem.objective.property
@@ -276,13 +256,9 @@ def reduce(ledger: Ledger) -> Reduced:
 
 
 def _cell(value: object) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            raise ReduceError(f"a non-finite number cannot be written to {RESULTS_NAME}")
-        return repr(value)
-    return str(value)
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ReduceError(f"a non-finite number cannot be written to {RESULTS_NAME}")
+    return "" if value is None else (repr(value) if isinstance(value, float) else str(value))
 
 
 def render_csv(reduced: Reduced) -> bytes:
@@ -296,10 +272,9 @@ def render_csv(reduced: Reduced) -> bytes:
 
 
 def _costs_agree(recorded: Mapping[str, Any], results: Sequence[EvalResult]) -> bool:
-    """The event cost equals the sum of its result costs, currency by currency.
+    """The event cost is the sum of its result costs: ``evals`` exactly, ``cpu_hours`` to 1e-12.
 
-    The evaluator adds ``cpu_hours`` as a running float sum, ``fsum`` is exact, so the hours agree
-    to a relative 1e-12 rather than bit for bit; ``evals`` are integers and agree exactly.
+    The evaluator adds the hours as a running float sum and ``fsum`` is exact, so no bit for bit.
     """
     same_evals = int(recorded["evals"]) == sum(r.cost.evals for r in results)
     same_hours = math.isclose(
@@ -314,10 +289,9 @@ def _costs_agree(recorded: Mapping[str, Any], results: Sequence[EvalResult]) -> 
 def usage_of(ledger: Ledger) -> dict[str, Any]:
     """The five keys of ``usage.json``, summed from the ``evaluation`` events of ``ledger``.
 
-    ``evals`` is the integer sum of the recorded result costs and ``cpu_hours`` their ``fsum``;
-    the two are separate currencies and are never combined (A-3, CONTEXT D-04). ``tokens`` and
-    ``usd`` stay 0 and 0.0 until Phase 6 adds the events that carry them. An event whose cost is
-    not the sum of its results raises ``LedgerIntegrityError``.
+    ``evals`` is the integer sum of the recorded result costs and ``cpu_hours`` their ``fsum``,
+    never combined (A-3, CONTEXT D-04); ``tokens`` and ``usd`` stay 0 until Phase 6. An event
+    whose cost is not the sum of its results raises ``LedgerIntegrityError``.
     """
     evals = 0
     hours: list[float] = []
@@ -341,41 +315,83 @@ def usage_of(ledger: Ledger) -> dict[str, Any]:
 
 
 @functools.cache
-def _usage_validator() -> Any:
-    return jsonschema.Draft202012Validator(
-        loads_strict(USAGE_SCHEMA_PATH.read_text(encoding="utf-8"))
-    )
+def _validator(schema_path: Path) -> Any:
+    return jsonschema.Draft202012Validator(loads_strict(schema_path.read_text(encoding="utf-8")))
+
+
+def _render_checked(mapping: Mapping[str, Any], schema_path: Path, what: str) -> bytes:
+    """``pretty_bytes`` of ``mapping`` once its schema accepts it, else ``ReduceError``."""
+    error = best_match(_validator(schema_path).iter_errors(mapping))
+    if error is not None:
+        pointer = "/" + "/".join(str(part) for part in error.absolute_path)
+        raise ReduceError(
+            f"{what} mapping refused by {schema_path.name}: {pointer}: {error.message}"
+        )
+    return pretty_bytes(mapping)
 
 
 def render_usage(ledger: Ledger) -> bytes:
     """The bytes of ``usage.json``; ``ReduceError`` when the mapping is not what the schema allows."""
-    usage = usage_of(ledger)
-    error = best_match(_usage_validator().iter_errors(usage))
-    if error is not None:
-        pointer = "/" + "/".join(str(part) for part in error.absolute_path)
-        raise ReduceError(f"usage mapping refused by run-usage.json: {pointer}: {error.message}")
-    return pretty_bytes(usage)
+    return _render_checked(usage_of(ledger), USAGE_SCHEMA_PATH, "usage")
 
 
-def write_outputs(run_dir: Path) -> dict[str, str]:
-    """Reduce the ledger of ``run_dir`` and write ``results.csv`` and ``usage.json`` if absent.
+@dataclass(frozen=True, slots=True)
+class Outputs:
+    """The three reduced files of one ledger as bytes, the hashes they carry, and its state."""
 
-    Both are rendered, and the usage mapping is checked against its schema, before a file is
+    results: bytes
+    usage: bytes
+    summary: bytes
+    ledger_sha256: str
+    results_sha256: str
+    closed: bool
+
+    def files(self) -> dict[str, bytes]:
+        return {RESULTS_NAME: self.results, USAGE_NAME: self.usage, SUMMARY_NAME: self.summary}
+
+
+def result_sha256(results: bytes, usage: bytes, summary: bytes) -> str:
+    """The sha256 of the three reduced files laid end to end in this order (CONTEXT D-03)."""
+    return hashlib.sha256(results + usage + summary).hexdigest()
+
+
+def render_outputs(ledger_bytes: bytes) -> Outputs:
+    """Parse ``ledger_bytes`` with every check of ``read``, reduce, and render the three files."""
+    parsed = parse_bytes(ledger_bytes)
+    if not parsed.events:
+        raise ReduceError("the ledger holds a header and no event: there is nothing to summarise")
+    reduced = reduce(parsed)
+    results = render_csv(reduced)
+    ledger_sha, results_sha = (hashlib.sha256(raw).hexdigest() for raw in (ledger_bytes, results))
+    mapping = summary_of(parsed, reduced.rows, ledger_sha256=ledger_sha, results_sha256=results_sha)
+    return Outputs(
+        results=results,
+        usage=render_usage(parsed),
+        summary=_render_checked(mapping, SUMMARY_SCHEMA_PATH, "summary"),
+        ledger_sha256=ledger_sha,
+        results_sha256=results_sha,
+        closed=parsed.closed,
+    )
+
+
+def write_outputs(run_dir: Path, outputs: Outputs | None = None) -> dict[str, str]:
+    """Reduce the ledger of ``run_dir`` (or take ``outputs``) and write the files that are absent.
+
+    All three are rendered, and each mapping is checked against its schema, before a file is
     opened. A file that is present must hold the same bytes, else ``LedgerIntegrityError``, and
-    that is checked for both before either is written; nothing is ever overwritten. Returns the
+    that is checked for all three before any is written; nothing is ever overwritten. Returns the
     sha256 by file name.
     """
-    parsed = read(run_dir / LEDGER_NAME)
-    outputs = {RESULTS_NAME: render_csv(reduce(parsed)), USAGE_NAME: render_usage(parsed)}
-    for name, data in outputs.items():
+    files = (outputs or render_outputs((run_dir / LEDGER_NAME).read_bytes())).files()
+    for name, data in files.items():
         present = run_dir / name
         if present.exists() and present.read_bytes() != data:
             raise LedgerIntegrityError(f"{name} differs from what the ledger reduces to")
-    for name, data in outputs.items():
+    for name, data in files.items():
         target = run_dir / name
         if not target.exists():
             with target.open("xb") as fh:
                 fh.write(data)
                 fh.flush()
                 os.fsync(fh.fileno())
-    return {name: hashlib.sha256(data).hexdigest() for name, data in outputs.items()}
+    return {name: hashlib.sha256(data).hexdigest() for name, data in files.items()}

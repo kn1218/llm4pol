@@ -311,7 +311,7 @@ def test_committed_fixture_holds_fixture_ids_and_invented_values_only(table_root
     raw = FIXTURE_PATH.read_bytes()
     assert raw.count(b"\n") == 18 and b"\r" not in raw
     allowed = {PE, PP_ISO, PP_ATA, PS, POM, PVF, UNKNOWN_CANDIDATE_ID}
-    tokens = set(re.findall(r"(?<![0-9a-f])[0-9a-f]{16}(?![0-9a-f])", raw.decode("utf-8")))
+    tokens = set(re.findall(r'"([0-9a-f]{16})"', raw.decode("utf-8")))  # quoted: not a float
     assert tokens and tokens <= allowed
 
     parsed = ledger.parse_bytes(raw)

@@ -7,7 +7,7 @@ spec, and summaries derived from the ledger alone. This package owns that record
 ``scripts/check.py``).
 
 The package root re-exports the public names of ``ids``, ``jsonio``, ``config``, ``ledger``,
-``selector`` and ``reduce`` (the function ``reduce`` is reached as ``llm4pol.run.reduce.reduce``:
+``selector``, ``reduce`` and ``summary`` (the function ``reduce`` is reached as ``llm4pol.run.reduce.reduce``:
 exporting it here would shadow the submodule) and imports no dataframe, parquet or array library
 (RESEARCH F-28, Pattern 4). ``population`` and ``resume``, which read the candidate table, are
 imported by the ``run`` verb only, so ``replay`` never loads them.
@@ -68,15 +68,21 @@ from llm4pol.run.ledger import (
 from llm4pol.run.reduce import (
     COLUMNS,
     RESULTS_NAME,
+    SUMMARY_NAME,
     USAGE_NAME,
+    Outputs,
     Reduced,
     ReduceError,
     Row,
     render_csv,
+    render_outputs,
     render_usage,
+    result_sha256,
     usage_of,
+    write_outputs,
 )
 from llm4pol.run.selector import PlanError, PlanSelector, Selection, Selector
+from llm4pol.run.summary import summary_of
 
 __all__ = [
     "COLUMNS",
@@ -86,6 +92,7 @@ __all__ = [
     "PROVIDER_KEY_NAMES",
     "RESULTS_NAME",
     "RUN_ID_PATTERN",
+    "SUMMARY_NAME",
     "USAGE_NAME",
     "Budget",
     "Clock",
@@ -100,6 +107,7 @@ __all__ = [
     "LedgerIntegrityError",
     "MetaError",
     "Objective",
+    "Outputs",
     "PlanError",
     "PlanSelector",
     "ProblemSpec",
@@ -133,10 +141,14 @@ __all__ = [
     "random_token",
     "read",
     "render_csv",
+    "render_outputs",
     "render_usage",
     "require_run_id",
+    "result_sha256",
+    "summary_of",
     "usage_of",
     "utc_now",
     "validate_meta",
     "write_meta",
+    "write_outputs",
 ]

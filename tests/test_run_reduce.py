@@ -27,6 +27,7 @@ from llm4pol.run import jsonio, ledger, reduce
 from run_support import (
     REFERENCE_RESULTS_CSV,
     REFERENCE_RESULTS_SHA256,
+    REFERENCE_SUMMARY_SHA256,
     REFERENCE_USAGE_JSON,
     REFERENCE_USAGE_SHA256,
     candidate_ids,
@@ -349,6 +350,7 @@ def test_usage_is_written_beside_the_results_and_never_overwritten(
     assert sums == {
         reduce.RESULTS_NAME: REFERENCE_RESULTS_SHA256,
         reduce.USAGE_NAME: REFERENCE_USAGE_SHA256,
+        reduce.SUMMARY_NAME: REFERENCE_SUMMARY_SHA256,
     }
     assert reduce.write_outputs(target) == sums, "an equal file is left as found"
     (target / reduce.USAGE_NAME).write_bytes(

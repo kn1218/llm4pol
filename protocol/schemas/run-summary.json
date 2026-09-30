@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kn1218/llm4pol/protocol/schemas/run-summary.json",
+  "title": "LLM4POL run summary -- ADR-0008 item 6, ADR-0007, CONTEXT R-5, D-39",
+  "description": "run_summary.json of a run, derived from ledger.jsonl alone and tracked in git (ADR-0007): the status, the completed iterations, the primary population, for every beam and population the trend of the percentile and of the number of selected candidates with the iteration number of each point, and the sha256 of ledger.jsonl and of results.csv, so a person holding a ledger can check it against the repository. A percentile is null when the beam selected nothing or the population is empty, never 0.0. The file holds no time of its own, so replay regenerates it byte for byte. All eight keys are required and every object is closed. This schema is self-contained (no cross-file reference) because the schema-inventory step validates without a registry. A change that a reported result depends on is a new schema version in a new file (charter section 4 A-5), never an edit of this one once results cite it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "status",
+    "completed_iterations",
+    "primary_population",
+    "trends",
+    "ledger_sha256",
+    "results_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^\\d{8}T\\d{6}Z-[0-9a-f]{8}$"
+    },
+    "status": {
+      "enum": ["open", "completed", "budget_exhausted"]
+    },
+    "completed_iterations": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "primary_population": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trends": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["beam", "population", "percentile_trend", "count_trend"],
+        "properties": {
+          "beam": {
+            "type": "string",
+            "minLength": 1
+          },
+          "population": {
+            "type": "string",
+            "minLength": 1
+          },
+          "percentile_trend": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["iteration", "value"],
+              "properties": {
+                "iteration": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "value": {
+                  "type": ["number", "null"]
+                }
+              }
+            }
+          },
+          "count_trend": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["iteration", "value"],
+              "properties": {
+                "iteration": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "value": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ledger_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "results_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

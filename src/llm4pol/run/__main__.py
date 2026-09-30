@@ -7,8 +7,12 @@ with ``meta.json`` and the ledger header, drives the run to its close and prints
 <plan> [--root <repo>] [--experiments <dir>]`` continues a recorded run from its ledger alone; it
 takes the problem from the ledger header and has no option that accepts other code, snapshot or
 registry version. ``replay --run <id> [--experiments <dir>] [--out <dir>]`` regenerates
-``results.csv`` from ``ledger.jsonl`` alone: it has no way to name a data root and loads neither
-the population code nor a dataframe library. ``usage --run <id> [--experiments <dir>]`` prints
+``results.csv``, ``usage.json`` and ``run_summary.json`` from ``ledger.jsonl`` alone, and prints
+``ledger_sha256:``, ``results_sha256:`` and last ``result_sha256:``, the sha256 of the three files
+laid end to end. On a closed run it writes a file that is absent and refuses, with exit 4 and
+nothing written, one that differs; on an open run it writes nothing into the run directory; with
+``--out`` it writes the three files there. It has no way to name a data root, compares no code
+version, and loads neither the population code nor a dataframe library. ``usage --run <id> [--experiments <dir>]`` prints
 ``usage.json`` as the ledger sums it (``evals`` and ``cpu_hours`` apart; ADR-0008 item 7): it
 compares no code version, loads no table, and writes nothing; on an open run it prints the sums of
 what is recorded.
@@ -37,7 +41,6 @@ starting ``detail:`` and never carries an environment value (RESEARCH Pattern 6,
 from __future__ import annotations
 
 import argparse
-import hashlib
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -133,12 +136,14 @@ def _parser() -> argparse.ArgumentParser:
     )
     again.set_defaults(handler=_resume)
 
-    replay = verbs.add_parser("replay", help="regenerate results.csv from the ledger alone")
+    replay = verbs.add_parser("replay", help="regenerate the three reduced files from the ledger")
     replay.add_argument("--run", required=True, help="the run id")
     replay.add_argument(
         "--experiments", type=Path, default=DEFAULT_EXPERIMENTS, help="the runs directory"
     )
-    replay.add_argument("--out", type=Path, default=None, help="write results.csv under this dir")
+    replay.add_argument(
+        "--out", type=Path, default=None, help="write the three files under this dir"
+    )
     replay.set_defaults(handler=_replay)
 
     usage = verbs.add_parser("usage", help="print the two budget currencies summed from the ledger")
@@ -217,18 +222,16 @@ def _replay(args: argparse.Namespace) -> int:
     run_dir: Path = args.experiments / ids.require_run_id(args.run)
     if args.out is not None and args.out.resolve() == run_dir.resolve():
         raise _Refused("--out must not be the run directory")
-    data = reduce.render_csv(reduce.reduce(read(run_dir / LEDGER_NAME)))
-    print(f"results_sha256: {hashlib.sha256(data).hexdigest()}")
+    outputs = reduce.render_outputs((run_dir / LEDGER_NAME).read_bytes())
+    if outputs.closed:  # raises LedgerIntegrityError, before anything is written, on a difference
+        reduce.write_outputs(run_dir, outputs)
     if args.out is not None:
         args.out.mkdir(parents=True, exist_ok=True)
-        (args.out / reduce.RESULTS_NAME).write_bytes(data)
-    recorded = run_dir / reduce.RESULTS_NAME
-    if recorded.exists() and recorded.read_bytes() != data:
-        return _fail(
-            EXIT_INTEGRITY,
-            INTEGRITY_LINE,
-            _Refused(f"{reduce.RESULTS_NAME} differs from what the ledger reduces to"),
-        )
+        for name, data in outputs.files().items():
+            (args.out / name).write_bytes(data)
+    print(f"ledger_sha256: {outputs.ledger_sha256}")
+    print(f"results_sha256: {outputs.results_sha256}")
+    print(f"result_sha256: {reduce.result_sha256(outputs.results, outputs.usage, outputs.summary)}")
     return EXIT_OK
 
 
