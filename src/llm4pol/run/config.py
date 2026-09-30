@@ -35,7 +35,7 @@ import jsonschema
 from jsonschema.exceptions import best_match
 
 from llm4pol.data.snapshot import DEFAULT_ROOT
-from llm4pol.run import ids
+from llm4pol.run import atomic, ids
 from llm4pol.run.jsonio import StrictJsonError, loads_strict, pretty_bytes
 
 SCHEMA_DIR = DEFAULT_ROOT / "protocol" / "schemas"
@@ -358,8 +358,5 @@ def write_meta(run_dir: Path, meta: Mapping[str, Any]) -> Path:
     validate_meta(safe)
     path = run_dir / META_NAME
     data = pretty_bytes(safe)
-    with path.open("xb") as fh:
-        fh.write(data)
-        fh.flush()
-        os.fsync(fh.fileno())
+    atomic.write_new(path, data)
     return path

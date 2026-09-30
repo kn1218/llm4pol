@@ -544,6 +544,7 @@ def test_the_static_prohibitions_of_the_plan_hold() -> None:
     assert modules == [
         "__init__.py",
         "__main__.py",
+        "atomic.py",
         "config.py",
         "ids.py",
         "jsonio.py",

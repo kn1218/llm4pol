@@ -13,9 +13,10 @@ bytes of the three files, each mapping checked against its schema before anythin
 (D-39), and their hashes; ``run_summary.json`` is built by ``llm4pol.run.summary``. Floats are
 ``repr`` and integers ``str``, LF only, so the bytes are identical on Windows and Linux (RESEARCH
 F-27, F-29). The module imports the standard library, ``jsonschema`` and the ``llm4pol`` modules
-``evaluate.contract``, ``run.config``, ``run.jsonio``, ``run.ledger`` and ``run.summary``, no
+``evaluate.contract``, ``run.atomic``, ``run.config``, ``run.jsonio``, ``run.ledger`` and
+``run.summary``, no
 dataframe, parquet or array library (RESEARCH F-28, Pattern 4); the only files it opens are the
-outputs of ``write_outputs``.
+outputs of ``write_outputs``, written through ``llm4pol.run.atomic``.
 """
 
 from __future__ import annotations
@@ -26,7 +27,6 @@ import hashlib
 import io
 import math
 import operator
-import os
 import statistics
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import astuple, dataclass
@@ -37,6 +37,7 @@ import jsonschema
 from jsonschema.exceptions import best_match
 
 from llm4pol.evaluate.contract import EvalResult
+from llm4pol.run import atomic
 from llm4pol.run.config import SCHEMA_DIR, ProblemSpec
 from llm4pol.run.jsonio import loads_strict, pretty_bytes
 from llm4pol.run.ledger import LEDGER_NAME, Event, Ledger, LedgerIntegrityError, parse_bytes
@@ -390,8 +391,5 @@ def write_outputs(run_dir: Path, outputs: Outputs | None = None) -> dict[str, st
     for name, data in files.items():
         target = run_dir / name
         if not target.exists():
-            with target.open("xb") as fh:
-                fh.write(data)
-                fh.flush()
-                os.fsync(fh.fileno())
+            atomic.write_new(target, data)
     return {name: hashlib.sha256(data).hexdigest() for name, data in files.items()}

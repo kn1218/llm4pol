@@ -468,7 +468,13 @@ def test_the_prohibitions_of_the_plan_hold_in_the_source() -> None:
     run_package = Path(resume.__file__).parent
     ledger_text = (run_package / "ledger.py").read_text(encoding="utf-8")
     assert sorted(set(re.findall(r'_write\(path, "(\w+)"', ledger_text))) == ["ab", "xb"]
+    # `atomic.py` alone may replace and unlink, and only its own temporary file onto an absent
+    # target (WR-03); the ledger modules never call `write_new`, so no ledger byte goes through it
+    for name in ("ledger.py", "records.py", "lock.py"):
+        assert "write_new" not in (run_package / name).read_text(encoding="utf-8"), name
     for module in run_package.glob("*.py"):
+        if module.name == "atomic.py":
+            continue
         text = module.read_text(encoding="utf-8")
         for forbidden in (".truncate(", ".unlink(", "os.remove(", "os.replace(", '"r+b"', '"wb"'):
             assert forbidden not in text, (module.name, forbidden)
