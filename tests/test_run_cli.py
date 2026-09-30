@@ -555,6 +555,7 @@ def test_the_static_prohibitions_of_the_plan_hold() -> None:
         "reduce.py",
         "resume.py",
         "selector.py",
+        "strictschema.py",
         "summary.py",
     ]
     assert all(

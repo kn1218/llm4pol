@@ -12,7 +12,7 @@ must be unique inside an iteration (threat T-04-07). Its ``identity`` is
 ``plan:sha256:<hex>`` over the canonical bytes of the payload, recorded in the ledger header.
 
 The module imports the standard library, ``jsonschema``, ``llm4pol.run.config``,
-``llm4pol.run.jsonio`` and ``llm4pol.run.ledger`` only.
+``llm4pol.run.jsonio``, ``llm4pol.run.ledger`` and ``llm4pol.run.strictschema`` only.
 """
 
 from __future__ import annotations
@@ -26,12 +26,12 @@ from itertools import zip_longest
 from pathlib import Path
 from typing import Any, Protocol, cast, runtime_checkable
 
-import jsonschema
 from jsonschema.exceptions import best_match
 
 from llm4pol.run.config import SCHEMA_DIR, ProblemSpec
 from llm4pol.run.jsonio import StrictJsonError, canonical_bytes, loads_strict
 from llm4pol.run.ledger import Event, Ledger, LedgerIntegrityError
+from llm4pol.run.strictschema import validator_class
 
 PLAN_SCHEMA_PATH = SCHEMA_DIR / "selection-plan.json"
 IDENTITY_PREFIX = "plan:sha256:"
@@ -76,7 +76,7 @@ class Selector(Protocol):
 
 @functools.cache
 def _plan_validator() -> Any:
-    return jsonschema.Draft202012Validator(loads_strict(PLAN_SCHEMA_PATH.read_text("utf-8")))
+    return validator_class()(loads_strict(PLAN_SCHEMA_PATH.read_text("utf-8")))
 
 
 def _check_schema(payload: object) -> None:

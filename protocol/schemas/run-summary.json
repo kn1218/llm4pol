@@ -21,7 +21,7 @@
     },
     "run_id": {
       "type": "string",
-      "pattern": "^\\d{8}T\\d{6}Z-[0-9a-f]{8}$"
+      "pattern": "^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$"
     },
     "status": {
       "enum": ["open", "completed", "budget_exhausted"]

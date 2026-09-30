@@ -31,12 +31,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-import jsonschema
 from jsonschema.exceptions import best_match
 
 from llm4pol.data.snapshot import DEFAULT_ROOT
 from llm4pol.run import atomic, ids
 from llm4pol.run.jsonio import StrictJsonError, loads_strict, pretty_bytes
+from llm4pol.run.strictschema import validator_class
 
 SCHEMA_DIR = DEFAULT_ROOT / "protocol" / "schemas"
 PROBLEM_SCHEMA_PATH = SCHEMA_DIR / "problem-spec.json"
@@ -154,7 +154,7 @@ class ProblemSpec:
 def problem_validator() -> Any:
     """The Draft 2020-12 validator of ``problem-spec.json`` (built once)."""
     schema = loads_strict(PROBLEM_SCHEMA_PATH.read_text(encoding="utf-8"))
-    return jsonschema.Draft202012Validator(schema)
+    return validator_class()(schema)
 
 
 def _refuse_what_a_schema_cannot_say(payload: Mapping[str, Any]) -> None:
@@ -336,9 +336,7 @@ def build_meta(
 
 @functools.cache
 def _meta_validator() -> Any:
-    return jsonschema.Draft202012Validator(
-        loads_strict(META_SCHEMA_PATH.read_text(encoding="utf-8"))
-    )
+    return validator_class()(loads_strict(META_SCHEMA_PATH.read_text(encoding="utf-8")))
 
 
 def validate_meta(meta: Mapping[str, Any]) -> None:

@@ -33,7 +33,6 @@ from dataclasses import astuple, dataclass
 from pathlib import Path
 from typing import Any
 
-import jsonschema
 from jsonschema.exceptions import best_match
 
 from llm4pol.evaluate.contract import EvalResult
@@ -41,6 +40,7 @@ from llm4pol.run import atomic
 from llm4pol.run.config import SCHEMA_DIR, ProblemSpec
 from llm4pol.run.jsonio import loads_strict, pretty_bytes
 from llm4pol.run.ledger import LEDGER_NAME, Event, Ledger, LedgerIntegrityError, parse_bytes
+from llm4pol.run.strictschema import validator_class
 from llm4pol.run.summary import summary_of
 
 COLUMNS: tuple[str, ...] = (
@@ -317,7 +317,7 @@ def usage_of(ledger: Ledger) -> dict[str, Any]:
 
 @functools.cache
 def _validator(schema_path: Path) -> Any:
-    return jsonschema.Draft202012Validator(loads_strict(schema_path.read_text(encoding="utf-8")))
+    return validator_class()(loads_strict(schema_path.read_text(encoding="utf-8")))
 
 
 def _render_checked(mapping: Mapping[str, Any], schema_path: Path, what: str) -> bytes:

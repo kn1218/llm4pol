@@ -19,7 +19,8 @@ that no event key occurs twice, that the lifecycle is in order and that the popu
 ``run_opened`` are parallel arrays (plan 04-05). Nothing here repairs or shortens a file.
 
 The module imports the standard library, ``jsonschema``, ``llm4pol.run.jsonio``,
-``llm4pol.run.config``, ``llm4pol.run.ids`` and ``llm4pol.data.snapshot`` only.
+``llm4pol.run.config``, ``llm4pol.run.ids``, ``llm4pol.run.atomic``, ``llm4pol.run.records``,
+``llm4pol.run.strictschema`` and ``llm4pol.data.snapshot`` only.
 """
 
 from __future__ import annotations
@@ -30,7 +31,6 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-import jsonschema
 from jsonschema.exceptions import best_match
 
 from llm4pol.run import ids
@@ -51,6 +51,7 @@ from llm4pol.run.records import (
     event_record,
     header_record,
 )
+from llm4pol.run.strictschema import validator_class
 
 __all__ = [
     "EVENT_KINDS",
@@ -132,22 +133,11 @@ def _check_events(events: Sequence[Event], source: str) -> None:
                 closed, open_iteration = event.iteration, None
 
 
-def _is_integer(_checker: Any, instance: object) -> bool:
-    """JSON Schema counts ``2.0`` as an integer; a canonical ledger writes ``2`` (WR-02)."""
-    return isinstance(instance, int) and not isinstance(instance, bool)
-
-
-_StrictValidator = jsonschema.validators.extend(
-    jsonschema.Draft202012Validator,
-    type_checker=jsonschema.Draft202012Validator.TYPE_CHECKER.redefine("integer", _is_integer),
-)
-
-
 @functools.cache
 def _validator(part: str) -> Any:
     """The Draft 2020-12 validator of ``#/$defs/<part>`` of ``ledger-event.json`` (built once)."""
     schema = loads_strict(LEDGER_SCHEMA_PATH.read_text(encoding="utf-8"))
-    return _StrictValidator(
+    return validator_class(strict_integers=True)(
         {
             "$schema": schema["$schema"],
             "$defs": schema["$defs"],

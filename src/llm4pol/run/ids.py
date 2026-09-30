@@ -16,7 +16,7 @@ import secrets
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
-RUN_ID_PATTERN = re.compile(r"\d{8}T\d{6}Z-[0-9a-f]{8}")
+RUN_ID_PATTERN = re.compile(r"[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}")  # ASCII digits only (WR-07)
 _TOKEN_PATTERN = re.compile(r"[0-9a-f]{8}")
 
 RUN_ID_TIME_FORMAT = "%Y%m%dT%H%M%SZ"
