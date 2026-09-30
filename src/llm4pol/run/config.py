@@ -226,6 +226,7 @@ def create_run_dir(experiments: Path, run_id: str) -> Path:
         run_dir.mkdir(exist_ok=False)
     except FileExistsError as exc:
         raise RunExists(RUN_EXISTS_MESSAGE) from exc
+    atomic.fsync_dir(experiments)
     return run_dir
 
 

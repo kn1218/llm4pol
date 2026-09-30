@@ -34,6 +34,7 @@ import jsonschema
 from jsonschema.exceptions import best_match
 
 from llm4pol.run import ids
+from llm4pol.run.atomic import fsync_dir
 from llm4pol.run.config import SCHEMA_DIR, ProblemSpecError
 from llm4pol.run.jsonio import StrictJsonError, canonical_bytes, loads_strict
 from llm4pol.run.records import (
@@ -185,6 +186,7 @@ def create(path: Path, header: Mapping[str, Any]) -> None:
         _write(path, "xb", data)
     except FileExistsError as exc:
         raise LedgerError("ledger exists; use replay") from exc
+    fsync_dir(path.parent)  # the entry is durable too (WR-06)
 
 
 def _last_line(path: Path) -> tuple[int, bytes, bool]:

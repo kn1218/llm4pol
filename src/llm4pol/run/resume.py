@@ -123,7 +123,12 @@ def open_run(
     token: str,
     code: CodeIdentity,
 ) -> Path:
-    """Create ``experiments/<run id>/`` with ``meta.json`` and a ledger holding its header."""
+    """Create ``experiments/<run id>/`` with ``meta.json`` and a ledger holding its header.
+
+    The order is directory, ``meta.json``, ledger. A crash between the steps leaves a directory
+    with no ledger; the run id is fresh every call, so nothing reuses it and ``resume`` reports
+    the missing ledger.
+    """
     registry = PropertyTable.load().registry
     if problem.table != registry.snapshot:
         raise PopulationError(

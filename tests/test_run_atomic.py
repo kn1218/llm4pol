@@ -10,6 +10,7 @@ file is never overwritten is unchanged.
 
 from __future__ import annotations
 
+import os
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -18,7 +19,13 @@ import pytest
 
 from conftest import REPO_ROOT
 from llm4pol.run import atomic, config, ledger, reduce
-from run_support import FIXED_CODE_SHA, FIXED_RUN_ID, REFERENCE_RESULTS_CSV, charter_problem
+from run_support import (
+    FIXED_CODE_SHA,
+    FIXED_RUN_ID,
+    REFERENCE_RESULTS_CSV,
+    charter_problem,
+    valid_header,
+)
 
 FIXTURE = REPO_ROOT / "tests" / "fixtures" / "run" / "reference-ledger.jsonl"
 OUTPUTS = (reduce.RESULTS_NAME, reduce.USAGE_NAME, reduce.SUMMARY_NAME)
@@ -147,3 +154,85 @@ def test_write_meta_is_atomic_and_exclusive(
     assert _names(tmp_path) == [config.META_NAME]
     with pytest.raises(FileExistsError):
         config.write_meta(tmp_path, meta)
+
+
+# --------------------------------------------------------------------------
+# WR-06: the directory entry of a new file is made durable (POSIX; a no-op where a directory
+# cannot be fsynced)
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def synced(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Path, tuple[str, ...]]]:
+    """Force directory fsync on and record each call with the names present in that directory."""
+    calls: list[tuple[Path, tuple[str, ...]]] = []
+
+    def spy(directory: Path) -> None:
+        calls.append((directory, tuple(_names(directory))))
+
+    monkeypatch.setattr(atomic, "DIRECTORY_FSYNC", True)
+    monkeypatch.setattr(atomic, "_sync_directory", spy)
+    return calls
+
+
+def test_fsync_dir_is_a_no_op_when_the_platform_cannot_do_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(directory: Path) -> None:
+        raise AssertionError("a directory fsync was attempted")
+
+    monkeypatch.setattr(atomic, "DIRECTORY_FSYNC", False)
+    monkeypatch.setattr(atomic, "_sync_directory", refuse)
+    atomic.fsync_dir(tmp_path)
+    atomic.write_new(tmp_path / "out.csv", b"x")
+    ledger.create(tmp_path / "ledger.jsonl", valid_header())
+
+
+def test_fsync_dir_syncs_a_real_directory_on_posix_and_is_off_elsewhere(tmp_path: Path) -> None:
+    assert atomic.DIRECTORY_FSYNC is (os.name == "posix")
+    atomic.fsync_dir(tmp_path)  # a real directory fsync on POSIX, nothing on Windows
+
+
+def test_the_ledger_is_synced_into_its_directory_after_create(
+    tmp_path: Path, synced: list[tuple[Path, tuple[str, ...]]]
+) -> None:
+    ledger.create(tmp_path / "ledger.jsonl", valid_header())
+    assert synced == [(tmp_path, ("ledger.jsonl",))]  # the entry existed when it was synced
+
+
+def test_write_new_syncs_the_directory_after_the_replace(
+    tmp_path: Path, synced: list[tuple[Path, tuple[str, ...]]]
+) -> None:
+    atomic.write_new(tmp_path / "out.csv", b"x")
+    assert synced == [(tmp_path, ("out.csv",))]  # no temporary name is left to sync
+
+
+def test_meta_and_every_output_are_synced(
+    run_dir: Path, synced: list[tuple[Path, tuple[str, ...]]]
+) -> None:
+    reduce.write_outputs(run_dir)
+    assert [directory for directory, _ in synced] == [run_dir] * 3
+    assert [names for _, names in synced][-1] == tuple(sorted([ledger.LEDGER_NAME, *OUTPUTS]))
+    synced.clear()
+    problem = config.parse_problem_spec(charter_problem(1, 3, 2))
+    meta = config.build_meta(
+        run_id=FIXED_RUN_ID,
+        created_at="2026-01-01T00:00:00Z",
+        problem=problem,
+        code=config.CodeIdentity(FIXED_CODE_SHA, False),
+        snapshot="polyomics:general_polymers@041e5834",
+        snapshot_sha256="0" * 64,
+        registry_version="v1",
+        selector="plan:sha256:" + "0" * 64,
+        environ={},
+    )
+    config.write_meta(run_dir, meta)
+    assert [directory for directory, _ in synced] == [run_dir]
+
+
+def test_a_new_run_directory_is_synced_into_the_experiments_directory(
+    tmp_path: Path, synced: list[tuple[Path, tuple[str, ...]]]
+) -> None:
+    experiments = tmp_path / "experiments"
+    config.create_run_dir(experiments, FIXED_RUN_ID)
+    assert synced == [(experiments, (FIXED_RUN_ID,))]
