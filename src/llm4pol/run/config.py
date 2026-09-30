@@ -51,6 +51,9 @@ PROVIDER_KEY_NAMES: tuple[str, ...] = ("OPENAI_API_KEY", "GEMINI_API_KEY", "CLAU
 
 RUN_EXISTS_MESSAGE = "run exists; use replay"
 
+# A git call that takes longer than this is stuck (an index lock, a network file system).
+GIT_TIMEOUT_SECONDS = 30
+
 # The paths that define behaviour: `dirty` is read over these only (RESEARCH Pitfall 9, F-52).
 BEHAVIOUR_PATHS: tuple[str, ...] = (
     "src",
@@ -243,6 +246,12 @@ class CodeIdentity:
     dirty: bool
 
 
+def _reason(stderr: str) -> str:
+    """The first non-empty line of git's stderr, whitespace collapsed and cut at 160 characters."""
+    lines = [" ".join(line.split()) for line in stderr.splitlines() if line.strip()]
+    return lines[0][:160] if lines else "no message"
+
+
 def _git(repo: Path, *args: str) -> str:
     try:
         done = subprocess.run(
@@ -251,12 +260,18 @@ def _git(repo: Path, *args: str) -> str:
             capture_output=True,
             text=True,
             encoding="utf-8",
+            errors="replace",
             check=False,
+            timeout=GIT_TIMEOUT_SECONDS,
         )
+    except subprocess.TimeoutExpired as exc:
+        raise CodeIdentityError(
+            f"git {args[0]} timed out after {GIT_TIMEOUT_SECONDS} s in {repo}"
+        ) from exc
     except OSError as exc:
         raise CodeIdentityError(f"git could not be run: {exc}") from exc
     if done.returncode != 0:
-        raise CodeIdentityError(f"git {args[0]} failed in {repo}")
+        raise CodeIdentityError(f"git {args[0]} failed in {repo}: {_reason(done.stderr or '')}")
     return done.stdout
 
 
