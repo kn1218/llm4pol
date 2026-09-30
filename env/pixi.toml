@@ -22,6 +22,11 @@ check-fast = { cmd = "python scripts/check.py --fast", cwd = "..", env = { PYTHO
 # `pixi run --manifest-path env/pixi.toml evaluate --request protocol/examples/eval-request.example.json`
 # (`--root`, `--cache <jsonl>`, `--evals-limit <n>`; exit 0 / 2 / 3, plan 03-02).
 evaluate = { cmd = "python -m llm4pol.evaluate", cwd = "..", env = { PYTHONPATH = "src" } }
+# The run-management CLI (Phase 4, CONTEXT D-07): `run` and `replay`, e.g.
+# `pixi run --manifest-path env/pixi.toml campaign run --problem <spec> --selector plan --plan <plan>`.
+# Named `campaign` because `pixi run ... run` would read as the pixi verb twice; the module is
+# `llm4pol.run`.
+campaign = { cmd = "python -m llm4pol.run", cwd = "..", env = { PYTHONPATH = "src" } }
 
 # base: cross-platform packages that install and import on both the Windows
 # laptop and Linux/dirac. Every environment uses this feature.

@@ -359,6 +359,38 @@ def test_replay_returns_4_when_results_csv_holds_other_bytes(
     assert capsys.readouterr().out.splitlines()[-1] == "ERROR: ledger integrity check failed"
 
 
+def test_a_request_beyond_the_evals_limit_exits_3_and_leaves_a_valid_prefix(
+    synthetic_candidates: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    plan = copy.deepcopy(TRACER_PLAN)
+    plan["iterations"][0]["beams"] = [{"beam": "full", "candidates": [PE, PP_ISO]}]
+    experiments = tmp_path / "experiments"
+    capsys.readouterr()
+    code = cli.main(
+        [
+            "run",
+            "--problem",
+            str(_write_json(tmp_path / "problem.json", charter_problem(1, 1, 1))),
+            "--selector",
+            "plan",
+            "--plan",
+            str(_write_json(tmp_path / "plan.json", plan)),
+            "--root",
+            str(synthetic_candidates),
+            "--experiments",
+            str(experiments),
+        ]
+    )
+    captured = capsys.readouterr()
+    assert code == 3
+    assert captured.out.splitlines()[-1] == "BUDGET: evaluation budget exceeded"
+    assert captured.err.startswith("detail:")
+    (run_dir,) = list(experiments.iterdir())
+    prefix = ledger.read(run_dir / ledger.LEDGER_NAME)
+    assert [e.event for e in prefix.events][-2:] == ["selection", "evaluation"]
+    assert not prefix.closed
+
+
 def _library_run(root: Path, tmp_path: Path, plan: dict[str, Any] | None = None) -> Path:
     problem = config.parse_problem_spec(charter_problem(1, 3, 2))
     chosen = selector.PlanSelector.from_payload(plan or TRACER_PLAN, problem)

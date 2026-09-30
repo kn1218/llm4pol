@@ -1,4 +1,4 @@
-"""The problem spec and the run directory (RUN-01, RUN-06; CONTEXT D-01, D-05; A-6).
+"""The problem spec, the run directory and ``meta.json`` (RUN-01, RUN-06; CONTEXT D-01, D-05, D-39; A-6).
 
 ``parse_problem_spec`` is the only place a caller-supplied problem enters the library and it
 follows the order of ``llm4pol.evaluate.contract.parse_request`` (RESEARCH Pattern 6):
@@ -9,12 +9,19 @@ reads through ``jsonio.loads_strict`` so ``NaN`` and a repeated key never reach 
 
 ``create_run_dir`` is the A-6 precondition: ``mkdir(exist_ok=False)`` turns an existing run
 directory into ``RunExists`` instead of a second run written over the first.
+
+``meta.json`` (D-01, D-39): ``build_meta`` assembles the fifteen keys, ``validate_meta`` checks
+them against ``protocol/schemas/run-meta.json`` and ``write_meta`` writes the pretty form once,
+after validation. A provider key is recorded as the boolean ``provider_key_configured`` decided by
+membership of its name in the environment; no value is read (charter section 12, F-50).
 """
 
 from __future__ import annotations
 
 import functools
 import math
+import os
+import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,10 +32,16 @@ from jsonschema.exceptions import best_match
 
 from llm4pol.data.snapshot import DEFAULT_ROOT
 from llm4pol.run import ids
-from llm4pol.run.jsonio import StrictJsonError, loads_strict
+from llm4pol.run.jsonio import StrictJsonError, loads_strict, pretty_bytes
 
 SCHEMA_DIR = DEFAULT_ROOT / "protocol" / "schemas"
 PROBLEM_SCHEMA_PATH = SCHEMA_DIR / "problem-spec.json"
+META_SCHEMA_PATH = SCHEMA_DIR / "run-meta.json"
+META_NAME = "meta.json"
+META_SCHEMA_VERSION = 1
+
+# The provider key names of `.env.example`; a name is only ever looked up, never its value.
+PROVIDER_KEY_NAMES: tuple[str, ...] = ("OPENAI_API_KEY", "GEMINI_API_KEY", "CLAUDE_API_KEY")
 
 RUN_EXISTS_MESSAGE = "run exists; use replay"
 
@@ -182,3 +195,121 @@ def create_run_dir(experiments: Path, run_id: str) -> Path:
     except FileExistsError as exc:
         raise RunExists(RUN_EXISTS_MESSAGE) from exc
     return run_dir
+
+
+# --------------------------------------------------------------------------
+# meta.json
+# --------------------------------------------------------------------------
+
+
+class MetaError(ValueError):
+    """A ``meta.json`` mapping that violates ``run-meta.json`` (the message names the pointer)."""
+
+
+class CodeIdentityError(RuntimeError):
+    """Git could not name the code the run is made with."""
+
+
+@dataclass(frozen=True, slots=True)
+class CodeIdentity:
+    """The code checkout of a run: its commit and whether the tree differs from it."""
+
+    sha: str
+    dirty: bool
+
+
+def _git(repo: Path, *args: str) -> str:
+    try:
+        done = subprocess.run(
+            ["git", *args],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+        )
+    except OSError as exc:
+        raise CodeIdentityError(f"git could not be run: {exc}") from exc
+    if done.returncode != 0:
+        raise CodeIdentityError(f"git {args[0]} failed in {repo}")
+    return done.stdout
+
+
+def code_identity(repo: Path = DEFAULT_ROOT) -> CodeIdentity:
+    """``git rev-parse HEAD`` and ``git status --porcelain`` of the code checkout ``repo``.
+
+    ``dirty`` is any porcelain output (plan 04-06 narrows it to the paths that define behaviour,
+    RESEARCH Pitfall 9). ``repo`` is the code checkout, never the data root.
+    """
+    sha = _git(repo, "rev-parse", "HEAD").strip()
+    dirty = bool(_git(repo, "status", "--porcelain").strip())
+    return CodeIdentity(sha=sha, dirty=dirty)
+
+
+def provider_key_configured(environ: Mapping[str, str]) -> bool:
+    """True when a provider key name is a member of ``environ``; no value is read (F-50)."""
+    return any(name in environ for name in PROVIDER_KEY_NAMES)
+
+
+def build_meta(
+    *,
+    run_id: str,
+    created_at: str,
+    problem: ProblemSpec,
+    code: CodeIdentity,
+    snapshot: str,
+    snapshot_sha256: str,
+    registry_version: str,
+    selector: str,
+    environ: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """The fifteen keys of ``meta.json``; ``prompt_versions`` empty, ``provider``/``model`` null."""
+    env = os.environ if environ is None else environ
+    return {
+        "schema_version": META_SCHEMA_VERSION,
+        "run_id": run_id,
+        "created_at": created_at,
+        "problem": problem.to_json(),
+        "code_git_sha": code.sha,
+        "dirty": code.dirty,
+        "prompt_versions": {},
+        "provider": None,
+        "model": None,
+        "seed": problem.seed,
+        "snapshot": snapshot,
+        "snapshot_sha256": snapshot_sha256,
+        "registry_version": registry_version,
+        "selector": selector,
+        "provider_key_configured": provider_key_configured(env),
+    }
+
+
+@functools.cache
+def _meta_validator() -> Any:
+    return jsonschema.Draft202012Validator(
+        loads_strict(META_SCHEMA_PATH.read_text(encoding="utf-8"))
+    )
+
+
+def validate_meta(meta: Mapping[str, Any]) -> None:
+    """Refuse a mapping the ``run-meta.json`` schema refuses; ``MetaError`` names the pointer."""
+    error = best_match(_meta_validator().iter_errors(meta))
+    if error is not None:
+        pointer = "/" + "/".join(str(part) for part in error.absolute_path)
+        raise MetaError(f"{pointer}: {error.message}")
+
+
+def write_meta(run_dir: Path, meta: Mapping[str, Any]) -> Path:
+    """Validate ``meta``, then write ``run_dir/meta.json`` once with an exclusive binary open.
+
+    ``MetaError`` before any file is opened; ``FileExistsError`` when the file is already there,
+    its bytes untouched.
+    """
+    validate_meta(meta)
+    path = run_dir / META_NAME
+    data = pretty_bytes(meta)
+    with path.open("xb") as fh:
+        fh.write(data)
+        fh.flush()
+        os.fsync(fh.fileno())
+    return path
