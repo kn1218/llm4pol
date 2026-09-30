@@ -241,6 +241,10 @@ def append(path: Path, event: Mapping[str, Any]) -> None:
 
     A torn tail refuses, and so does an event whose ``seq`` is not the last ``seq`` plus one, one
     after ``run_closed`` and one of another run (CR-01, belt and braces beside the run lock).
+
+    The caller must hold ``lock.held`` on ``path`` for the whole session that appends. This
+    function checks the tail it finds, but between that check and the write another process could
+    append, so the lock, not this check, is what keeps two writers apart.
     """
     data = _line_bytes(event, "event", "event")
     size = _require_next(path, event)

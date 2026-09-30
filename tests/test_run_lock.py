@@ -293,3 +293,11 @@ def test_append_refuses_an_event_of_another_run(tmp_path: Path) -> None:
     with pytest.raises(ledger.LedgerIntegrityError, match="follow"):
         ledger.append(path, foreign)
     assert path.read_bytes() == before
+
+
+def test_the_public_append_states_that_the_caller_must_hold_the_lock() -> None:
+    import llm4pol.run as run_package
+
+    assert run_package.append is ledger.append
+    doc = " ".join((ledger.append.__doc__ or "").split())
+    assert "caller must hold" in doc and "lock.held" in doc  # RR-5: the guard is the caller's
