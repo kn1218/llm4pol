@@ -76,10 +76,10 @@ def test_a_failed_create_and_a_failed_output_are_record_write_errors(
         ledger.create(tmp_path / ledger.LEDGER_NAME, valid_header())
     monkeypatch.undo()
 
-    def replace(src: Any, dst: Any) -> None:
+    def publish(src: Any, dst: Any) -> None:
         raise OSError(errno.ENOSPC, "No space left on device")
 
-    monkeypatch.setattr(atomic.os, "replace", replace)
+    monkeypatch.setattr(atomic, "_publish", publish)
     with pytest.raises(atomic.RecordWriteError, match="No space left on device"):
         atomic.write_new(tmp_path / "results.csv", b"x")
     assert not any(tmp_path.glob("*.tmp"))

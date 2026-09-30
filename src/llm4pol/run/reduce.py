@@ -14,8 +14,7 @@ bytes of the three files, each mapping checked against its schema before anythin
 ``repr`` and integers ``str``, LF only, so the bytes are identical on Windows and Linux (RESEARCH
 F-27, F-29). The module imports the standard library, ``jsonschema`` and the ``llm4pol`` modules
 ``evaluate.contract``, ``run.atomic``, ``run.config``, ``run.jsonio``, ``run.ledger`` and
-``run.summary``, no
-dataframe, parquet or array library (RESEARCH F-28, Pattern 4); the only files it opens are the
+``run.summary``, no dataframe, parquet or array library (RESEARCH F-28, Pattern 4); the only files it opens are the
 outputs of ``write_outputs``, written through ``llm4pol.run.atomic``.
 """
 
@@ -390,10 +389,11 @@ def write_outputs(run_dir: Path, outputs: Outputs | None = None) -> dict[str, st
 
     All three are rendered, and each mapping is checked against its schema, before a file is
     opened. A present file must hold the same bytes (``check_outputs``, for all three, before any
-    is written); nothing is ever overwritten. Returns the sha256 by file name."""
+    is written); nothing is ever overwritten, and a file a concurrent writer creates first is judged
+    by the same rule. Returns the sha256 by file name."""
     outputs = outputs or render_outputs((run_dir / LEDGER_NAME).read_bytes())
     check_outputs(run_dir, outputs)
     for name, data in outputs.files().items():
-        if not (run_dir / name).exists():
-            atomic.write_new(run_dir / name, data)
+        if not atomic.write_new_or_keep(run_dir / name, data):
+            raise LedgerIntegrityError(f"{name} differs from what the ledger reduces to")
     return {name: hashlib.sha256(data).hexdigest() for name, data in outputs.files().items()}

@@ -44,17 +44,17 @@ def _names(directory: Path) -> list[str]:
 
 
 def _fail_nth_replace(monkeypatch: pytest.MonkeyPatch, nth: int) -> list[tuple[Path, Path]]:
-    """Make the ``nth`` (1-based) ``os.replace`` of ``atomic`` raise; record every call."""
-    real: Callable[..., None] = atomic.os.replace
+    """Make the ``nth`` (1-based) publish of ``atomic`` raise; record every call."""
+    real: Callable[[Path, Path], None] = atomic._publish
     calls: list[tuple[Path, Path]] = []
 
-    def replace(src: str | Path, dst: str | Path) -> None:
+    def publish(src: Path, dst: Path) -> None:
         calls.append((Path(src), Path(dst)))
         if len(calls) == nth:
             raise OSError("disk full")
         real(src, dst)
 
-    monkeypatch.setattr(atomic.os, "replace", replace)
+    monkeypatch.setattr(atomic, "_publish", publish)
     return calls
 
 
@@ -63,18 +63,18 @@ def test_write_new_writes_through_a_temp_in_the_same_directory(
 ) -> None:
     events: list[str] = []
     real_fsync = atomic.os.fsync
-    real_replace = atomic.os.replace
+    real_publish = atomic._publish
 
     def fsync(fd: int) -> None:
         events.append("fsync")
         real_fsync(fd)
 
-    def replace(src: str | Path, dst: str | Path) -> None:
+    def publish(src: Path, dst: Path) -> None:
         events.append(f"replace:{Path(src).parent == Path(dst).parent}")
-        real_replace(src, dst)
+        real_publish(src, dst)
 
     monkeypatch.setattr(atomic.os, "fsync", fsync)
-    monkeypatch.setattr(atomic.os, "replace", replace)
+    monkeypatch.setattr(atomic, "_publish", publish)
 
     atomic.write_new(tmp_path / "out.csv", b"a,b\n")
 
@@ -154,6 +154,118 @@ def test_write_meta_is_atomic_and_exclusive(
     assert _names(tmp_path) == [config.META_NAME]
     with pytest.raises(FileExistsError):
         config.write_meta(tmp_path, meta)
+
+
+# --------------------------------------------------------------------------
+# RR-3: publish without overwrite, so a writer that appears between the pre-check and the
+# publish is refused, never replaced
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture(
+    params=[
+        "link",
+        pytest.param(
+            "rename",
+            marks=pytest.mark.skipif(
+                os.name != "nt", reason="rename replaces a target on POSIX; the link branch is used"
+            ),
+        ),
+    ]
+)
+def publish_mode(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> str:
+    monkeypatch.setattr(atomic, "PUBLISH_WITH_LINK", request.param == "link")
+    return str(request.param)
+
+
+def _create_target_when_synced(monkeypatch: pytest.MonkeyPatch, target: Path, data: bytes) -> None:
+    """A concurrent writer creates ``target`` after the temp is written and before the publish."""
+    real_fsync = atomic.os.fsync
+    created: list[bool] = []
+
+    def fsync(fd: int) -> None:
+        real_fsync(fd)
+        if not created:
+            created.append(True)
+            target.write_bytes(data)
+
+    monkeypatch.setattr(atomic.os, "fsync", fsync)
+
+
+def test_a_target_created_after_the_pre_check_is_refused_untouched(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, publish_mode: str
+) -> None:
+    target = tmp_path / "out.csv"
+    _create_target_when_synced(monkeypatch, target, b"concurrent")
+    with pytest.raises(FileExistsError) as refused:
+        atomic.write_new(target, b"mine")
+    assert not isinstance(refused.value, atomic.RecordWriteError)
+    assert target.read_bytes() == b"concurrent"
+    assert _names(tmp_path) == ["out.csv"]  # the temporary is gone
+
+
+@pytest.mark.parametrize("fail_at", ["publish", "write"])
+def test_the_temp_is_removed_when_the_write_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, publish_mode: str, fail_at: str
+) -> None:
+    if fail_at == "publish":
+        _fail_nth_replace(monkeypatch, 1)
+    else:
+
+        def refuse(fd: int) -> None:
+            raise OSError("disk full")
+
+        monkeypatch.setattr(atomic.os, "fsync", refuse)
+    with pytest.raises(atomic.RecordWriteError, match="disk full"):
+        atomic.write_new(tmp_path / "out.csv", b"data")
+    assert _names(tmp_path) == []
+
+
+def test_a_published_file_leaves_no_temp_in_either_mode(tmp_path: Path, publish_mode: str) -> None:
+    atomic.write_new(tmp_path / "out.csv", b"data")
+    assert _names(tmp_path) == ["out.csv"]
+    assert (tmp_path / "out.csv").read_bytes() == b"data"
+
+
+def test_write_new_or_keep_writes_an_absent_file_and_judges_a_present_one(tmp_path: Path) -> None:
+    target = tmp_path / "out.csv"
+    assert atomic.write_new_or_keep(target, b"a") is True  # written
+    assert atomic.write_new_or_keep(target, b"a") is True  # equal: kept
+    assert atomic.write_new_or_keep(target, b"b") is False  # differing: reported, not replaced
+    assert target.read_bytes() == b"a"
+    assert _names(tmp_path) == ["out.csv"]
+
+
+def _concurrent_writer(monkeypatch: pytest.MonkeyPatch, name: str, data: bytes) -> None:
+    """The first publish of ``name`` finds a file another writer created a moment before."""
+    real_publish = atomic._publish
+
+    def publish(src: Path, dst: Path) -> None:
+        if dst.name == name and not dst.exists():
+            dst.write_bytes(data)
+        real_publish(src, dst)
+
+    monkeypatch.setattr(atomic, "_publish", publish)
+
+
+def test_write_outputs_keeps_a_concurrent_writers_equal_file(
+    run_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _concurrent_writer(monkeypatch, reduce.RESULTS_NAME, REFERENCE_RESULTS_CSV)
+    sums = reduce.write_outputs(run_dir)
+    assert set(sums) == set(OUTPUTS)
+    assert (run_dir / reduce.RESULTS_NAME).read_bytes() == REFERENCE_RESULTS_CSV
+    assert _names(run_dir) == sorted([ledger.LEDGER_NAME, *OUTPUTS])
+
+
+def test_write_outputs_refuses_a_concurrent_writers_differing_file_as_integrity(
+    run_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _concurrent_writer(monkeypatch, reduce.RESULTS_NAME, b"not the reduction\n")
+    with pytest.raises(ledger.LedgerIntegrityError, match="differs"):
+        reduce.write_outputs(run_dir)
+    assert (run_dir / reduce.RESULTS_NAME).read_bytes() == b"not the reduction\n"
+    assert not any(run_dir.glob(".*.tmp"))
 
 
 # --------------------------------------------------------------------------
