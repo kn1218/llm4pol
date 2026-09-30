@@ -6,7 +6,7 @@ temporary on POSIX (``os.rename`` there would replace a target), ``os.rename`` o
 fails when the target exists). A process that dies mid-write leaves a stray ``.<name>.<pid>.tmp``
 and no target, so a rerun writes the file, where an in-place ``xb`` write would leave a truncated
 target that every later run reads as tampering. The temporary is removed whenever the write
-fails.
+fails, and a resume clears the ones a crash left (``remove_stray_temporaries``).
 
 ``fsync_dir`` makes a new directory entry durable: an fsynced file can still vanish after a power
 loss on POSIX when its entry was never synced. Windows cannot open a directory for fsync, so
@@ -27,6 +27,7 @@ The module imports the standard library only.
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 DIRECTORY_FSYNC = os.name == "posix"
@@ -106,3 +107,22 @@ def write_new_or_keep(path: Path, data: bytes) -> bool:
     except FileExistsError:
         return path.read_bytes() == data
     return True
+
+
+_STRAY_TEMPORARY = re.compile(r"\.[A-Za-z0-9_][A-Za-z0-9_.-]*\.[0-9]+\.tmp")
+
+
+def remove_stray_temporaries(directory: Path) -> list[str]:
+    """Remove the ``.<name>.<pid>.tmp`` files ``write_new`` left in ``directory``; their names.
+
+    A process killed between writing the temporary and publishing it leaves one behind (RR-4).
+    Only a regular file whose whole name has that shape is removed. The caller holds the run lock,
+    so no driver of the run is writing; a ``replay`` writing outputs at that moment takes no lock
+    and would see its write fail as an I/O error, and a rerun succeeds.
+    """
+    removed: list[str] = []
+    for entry in sorted(directory.iterdir()):
+        if _STRAY_TEMPORARY.fullmatch(entry.name) and entry.is_file() and not entry.is_symlink():
+            entry.unlink()
+            removed.append(entry.name)
+    return removed

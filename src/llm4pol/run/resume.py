@@ -42,7 +42,7 @@ from llm4pol.evaluate import (
 )
 from llm4pol.evaluate.backends.table import TableBackend
 from llm4pol.evaluate.cache import key_for
-from llm4pol.run import lock, population, reduce
+from llm4pol.run import atomic, lock, population, reduce
 from llm4pol.run.config import (
     CodeIdentity,
     ProblemSpec,
@@ -321,7 +321,8 @@ def drive(run_dir: Path, *, root: Path, selector: Selector, clock: Clock) -> Out
     """Bring the run of ``run_dir`` to its close from whatever prefix its ledger records.
 
     The ledger is locked for the whole call (``RunLocked`` when another process holds it, before
-    anything is read or appended), so two drivers never write one run (CR-01).
+    anything is read or appended), so two drivers never write one run (CR-01). Under the lock it
+    removes the stray ``.<name>.<pid>.tmp`` files of a crashed write (RR-4).
     """
     path = run_dir / LEDGER_NAME
     try:
@@ -335,6 +336,7 @@ def drive(run_dir: Path, *, root: Path, selector: Selector, clock: Clock) -> Out
 
 def _drive_locked(run_dir: Path, *, root: Path, selector: Selector, clock: Clock) -> Outcome:
     path = run_dir / LEDGER_NAME
+    atomic.remove_stray_temporaries(run_dir)  # what a crashed write_new left (RR-4)
     recorded = read(path)
     if recorded.header.selector != selector.identity:
         raise DriveError("the selector is not the one the ledger header records")
