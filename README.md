@@ -44,7 +44,7 @@ docs/audit/                  verified data-foundation audit (2026-09-11)
 docs/research/               LLM4MOF study, polymer landscape, porting study, fact-checks
 docs/reference/              input documents (the July 2026 concept proposal)
 env/pixi.toml, pixi.lock     the locked multi-platform environment
-experiments/                 run outputs; git-ignored except the README
+experiments/                 run outputs; the four summaries of a run are tracked, the ledger is not (ADR-0007)
 protocol/prompts/            agent prompts as sent, versioned; a prompt is an interface
 protocol/schemas/            JSON Schema for every payload that crosses a component boundary
 pyproject.toml               package metadata, ruff / mypy / import-linter configuration

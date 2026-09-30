@@ -34,10 +34,20 @@ data/raw/
 data/interim/
 data/processed/
 
-# run outputs: derived from PoLyInfo data (redistribution) and large/numerous.
-# experiments/README.md documents the layout and is kept.
+# run outputs (ADR-0007): the ledger and everything else in a run directory stay
+# untracked for size; the four summaries of each run are tracked so that a
+# published number can be cited from the repository. A run that reads
+# PoLyInfo-derived data stays untracked in full (ADR-0001); the governance test
+# enforces it. The directory itself must be re-included, or the re-include of a
+# file inside it does nothing. experiments/README.md documents the layout.
 experiments/*
 !experiments/README.md
+!experiments/*/
+experiments/*/*
+!experiments/*/meta.json
+!experiments/*/usage.json
+!experiments/*/results.csv
+!experiments/*/run_summary.json
 
 # notebooks: checkpoints and rendered outputs
 .ipynb_checkpoints/

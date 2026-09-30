@@ -1,35 +1,58 @@
 # experiments/
 
-Run outputs. **Git-ignored except for this file.** Nothing in here is a source artifact and
-nothing in here is a result until it has been reduced into `docs/` or a figure script.
+Run outputs. Inside a run directory git tracks four small summaries and ignores the ledger and
+everything else (ADR-0007; charter `docs/MASTER-PLAN.md` §10). Nothing in here is a result until it
+has been reduced into `docs/` or a figure script; a tracked summary is the record a published number
+is cited from.
 
-## Why it is ignored
+## Layout of a run directory
 
-1. Run outputs are untracked by policy. They are large, numerous and rewritten constantly, and
-   the charter (`docs/MASTER-PLAN.md` §10) keeps the run directory out of version control for
-   every layer.
-2. For the PolyOmics layer this is policy only: PolyOmics is CC BY 4.0, so a run directory
-   derived from it carries no redistribution problem (charter §10).
-3. Once M8 adds the PoLyInfo-derived experimental table (charter §13 M8), feedback payloads and
-   candidate tables inside a run directory become PoLyInfo-derived content and may not be
-   committed under the MatNavi terms (ADR-0001). The policy does not change at that point; only
-   the second reason arrives.
+`experiments/<run-id>/`, where the run id is `<UTC timestamp>-<8 hex>` (for example
+`20260930T071500Z-3f9a1c2e`). Five files:
 
-## Expected layout, once runs exist
+| File | What it holds | Tracked |
+|---|---|---|
+| `meta.json` | what was run: the problem, the code version, the seed, the snapshot, the selector; written once when the run opens | yes |
+| `ledger.jsonl` | a header line, then append-only events, one canonical JSON object per line; the populations travel in the `run_opened` event | no |
+| `usage.json` | the two budget currencies and the token count: `evals`, `cpu_hours`, `tokens`, `usd` | yes |
+| `results.csv` | one row per iteration, beam and population; the column definitions are in ADR-0008 | yes |
+| `run_summary.json` | completed iterations, per-beam trends, the sha256 of `ledger.jsonl` and of `results.csv` | yes |
 
-```
-experiments/<run-id>/
-  meta.json           what was run: inputs, versions, prompt versions, seed, provider, model
-  <per-iteration>/    the artifacts that iteration produced
-  usage.json          token and cost accounting
-  results.csv         the reduced table that figures are built from
-```
+`meta.json`, `usage.json` and `run_summary.json` each validate against a schema under
+`protocol/schemas/` and carry `schema_version` (D-39). `run-meta.json` exists today; the schemas of
+`usage.json` and `run_summary.json` are added by later plans of the same phase, before the run
+record freezes at the exit of M3.
+
+## Why four files are tracked and the ledger is not
+
+A number in a figure should be traceable to the record that produced it, and a record that is never
+shared cannot be cited. `meta.json`, `usage.json`, `results.csv` and `run_summary.json` are small.
+`ledger.jsonl` is large and append-only, and a replicate battery of them runs to tens of megabytes,
+which version control is the wrong store for. `run_summary.json` carries the sha256 of the ledger and
+of `results.csv`, so a person holding a ledger can check it against the repository: compute its
+sha256 and compare it with the value in the tracked `run_summary.json`.
+
+A tracked `meta.json` must name a `polyomics:` snapshot. A run that reads PoLyInfo-derived data (M8
+onward) is not covered by ADR-0007: its directory stays untracked in full under ADR-0001, because the
+NIMS MatNavi terms forbid redistribution of that data and of anything derived from it.
+`tests/test_governance.py` enforces both rules by asking git (`git check-ignore`, `git ls-files`)
+and not by reading `.gitignore` as text.
 
 ## Rules
 
 - A run directory is append-only. A rerun gets a new identifier; it never overwrites.
-- `meta.json` records the exact prompt version from `protocol/prompts/` and the exact
-  configuration used, so a result can be traced to what produced it.
-- Anything a figure or a claim depends on is reduced into a small committed file and cited
-  from the document that uses it. The run directory itself is not a citable artifact, because
-  it is not shared.
+- `resume` continues a run from its ledger, rebuilding the evaluation cache and the budget meter from
+  the recorded events. It refuses a ledger whose header names another snapshot, registry version or
+  code version than the running code, and a ledger with a torn final line; it reports the offset and
+  repairs nothing (ADR-0008 item 7).
+- `replay` regenerates `results.csv` and `run_summary.json` from the ledger alone, byte-identical to
+  the originals. It does not compare the code version and loads no data table.
+- `meta.json` records the exact prompt versions from `protocol/prompts/` and the exact configuration
+  used, so a result can be traced to what produced it.
+- Development runs accumulate. A run whose summary is committed is a record; throwaway runs are
+  deleted before committing, not committed and reverted.
+- Anything else a figure or a claim depends on is reduced into a small committed file and cited from
+  the document that uses it.
+- The pre-registration file of Phase 7 (`experiments/PREREG-<date>.md`) is ignored by the pattern
+  block in `.gitignore`, as every top-level file here is except this README; Phase 7 adds its own
+  re-include.

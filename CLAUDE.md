@@ -71,7 +71,7 @@ and are diffed against it before implementation starts (ADR-0002).
 | `protocol/prompts/` | Agent prompts exactly as sent, versioned | A prompt that produced a reported result is never edited in place; bump the version |
 | `protocol/schemas/` | JSON Schema for every payload crossing a component boundary | A payload with no schema has no guard |
 | `config/` | Committed machine configuration | Every file has a sibling `*.schema.json`; enforced by the test suite. No secrets |
-| `experiments/` | Run outputs | Git-ignored except the README. Append-only; a rerun gets a new identifier |
+| `experiments/` | Run outputs | The four summaries of a run (`meta.json`, `usage.json`, `results.csv`, `run_summary.json`) are tracked, the ledger is not (ADR-0007). Append-only; a rerun gets a new identifier |
 | `docs/governance/ADR/` | Architecture decisions | `NNNN-kebab-case.md`, contiguous numbering, Status and Date lines; enforced by the test suite |
 
 ## Checks
