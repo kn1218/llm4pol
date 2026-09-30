@@ -50,3 +50,127 @@ def charter_problem(iterations: int, candidates_per_beam: int, beams: int) -> di
         "table": SNAPSHOT_ID,
         "seed": 0,
     }
+
+
+# --------------------------------------------------------------------------
+# Ledger builders (plan 04-01, task 2): hand-built records, fixture ids only. They import
+# nothing of ``llm4pol.run`` so a ledger test never rests on the code it is checking.
+# --------------------------------------------------------------------------
+
+CANDIDATE_A = "7ec8cb49ff317efc"
+CANDIDATE_B = "b3a635a55e1a6645"
+CANDIDATE_C = "81b997b85ccd2069"
+
+EVENT_KINDS = (
+    "run_opened",
+    "iteration_opened",
+    "selection",
+    "evaluation",
+    "no_match",
+    "iteration_closed",
+    "run_closed",
+)
+
+
+def valid_header(problem: dict[str, Any] | None = None) -> dict[str, Any]:
+    """A valid ledger header line for the tracer problem (thresholds 2.6 and 400.0)."""
+    body = problem if problem is not None else charter_problem(1, 3, 2)
+    return {
+        "schema_version": 1,
+        "run_id": FIXED_RUN_ID,
+        "problem": body,
+        "provenance": {
+            "seed": body["seed"],
+            "snapshot": SNAPSHOT_ID,
+            "registry_version": "v1",
+            "selector": "plan:sha256:" + "0" * 64,
+            "code_git_sha": FIXED_CODE_SHA,
+        },
+    }
+
+
+def valid_cost(evals: int = 1, cpu_hours: float = 0.0) -> dict[str, Any]:
+    return {"evals": evals, "cpu_hours": cpu_hours}
+
+
+def valid_result(
+    candidate_id: str = CANDIDATE_A,
+    property_key: str = "thermal_conductivity",
+    value: float = 0.315,
+    *,
+    evals: int = 1,
+) -> dict[str, Any]:
+    """A valid ``ok`` result of the evaluator response schema (invented value)."""
+    return {
+        "candidate_id": candidate_id,
+        "property": property_key,
+        "status": "ok",
+        "value": value,
+        "unit": "W/(m K)",
+        "n_replicates": 2,
+        "spread": 0.01,
+        "backend": "table",
+        "source": SNAPSHOT_ID,
+        "provenance_tier": "md_simulated",
+        "cached": False,
+        "cost": valid_cost(evals),
+    }
+
+
+def valid_payload(kind: str) -> dict[str, Any]:
+    """A valid payload of each of the seven M3 event kinds."""
+    if kind == "run_opened":
+        return {
+            "primary": "check_tc",
+            "populations": [
+                {
+                    "name": name,
+                    "objective": [0.155, 0.18, 0.2, 0.315],
+                    "constraints": {
+                        "dielectric_const_dc": [2.2, 2.3, 2.5, 2.6],
+                        "tg": [250.0, 260.0, 300.0, 410.0],
+                    },
+                }
+                for name in ("check_tc", "readme_triple")
+            ],
+        }
+    if kind == "selection":
+        return {"beam": "full", "candidates": [CANDIDATE_A, CANDIDATE_B]}
+    if kind == "evaluation":
+        return {
+            "beam": "full",
+            "candidate_id": CANDIDATE_A,
+            "results": [valid_result()],
+            "cost": valid_cost(),
+        }
+    if kind == "no_match":
+        return {"beam": "chem"}
+    if kind == "run_closed":
+        return {"reason": "completed"}
+    if kind in ("iteration_opened", "iteration_closed"):
+        return {}
+    raise ValueError(f"unknown event kind {kind!r}")
+
+
+def valid_event(
+    kind: str,
+    seq: int = 1,
+    *,
+    iteration: int | None = None,
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """A valid event of ``kind``; run-scoped kinds sit at iteration 0, the others at 1."""
+    run_scoped = kind in ("run_opened", "run_closed")
+    return {
+        "seq": seq,
+        "ts": FIXED_TS,
+        "run_id": FIXED_RUN_ID,
+        "iteration": iteration if iteration is not None else (0 if run_scoped else 1),
+        "event": kind,
+        "payload": payload if payload is not None else valid_payload(kind),
+    }
+
+
+def one_event_of_each_kind() -> list[dict[str, Any]]:
+    """Seven valid events, ``seq`` 1..7, one per kind in the order of ``EVENT_KINDS``."""
+    return [valid_event(kind, seq) for seq, kind in enumerate(EVENT_KINDS, start=1)]
