@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -151,16 +152,36 @@ def write_manifest(root: Path, files: list[Path]) -> Path:
     return manifest
 
 
-def make_synthetic_root(root: Path) -> Path:
+# Two rows appended to a copy of the shared rows by the Phase 4 fixture `run_extended_candidates`
+# (plan 04-06), so that the two run populations differ. Facts the tests of
+# `tests/test_run_population.py` pin (16 source rows, 14 in scope, 9 candidates):
+#   row 15  `*CC(*)Cl`/atactic, TC 0.40, check_tc False -> a new candidate `e46d685d3399e6b4`,
+#           inside the README triple, so a member of `readme_triple` only;
+#   row 16  `*CC(*)C`/isotactic, TC 0.26, check_tc False -> a second row of `d751b16095852737`:
+#           its served medians become TC 0.23, eps 2.22, Tg 445.0, while its `check_tc`-passing
+#           row alone would give TC 0.2.
+# `_CORE` and `SYNTHETIC_ROWS` are not edited: many tests cite 14 source rows and 8 candidates.
+RUN_EXTRA_CORE: tuple[tuple[Any, ...], ...] = (
+    ("*CC(*)Cl", _MISSING, "atactic", 0.40, 2.40, 1.54, 420.0, 0.04, False),
+    ("*CC(*)C", _MISSING, "isotactic", 0.26, 2.24, 1.45, 440.0, 0.03, False),
+)
+
+
+def make_synthetic_root(root: Path, extra_core: Sequence[tuple[Any, ...]] = ()) -> Path:
     """Populate ``root`` as a fake repository: synthetic CSV, README, manifest, output dirs.
 
     Module-level (not a fixture) so the one-off example generator of plan
-    03-01 and the fixtures below share one definition of the fake root.
+    03-01 and the fixtures below share one definition of the fake root. Each entry of
+    ``extra_core`` (same column order as ``_CORE``) is appended after the shared rows as
+    ``_synthetic_row(index, core)``; the shared rows themselves never change.
     """
     raw = snapshot.raw_dir(root)
     raw.mkdir(parents=True)
     csv = snapshot.csv_path(root)
-    pd.DataFrame(SYNTHETIC_ROWS).to_csv(csv, index=False)
+    extra = [
+        _synthetic_row(index, core) for index, core in enumerate(extra_core, start=len(_CORE) + 1)
+    ]
+    pd.DataFrame([*SYNTHETIC_ROWS, *extra]).to_csv(csv, index=False)
     readme = snapshot.readme_path(root)
     readme.write_text(SYNTHETIC_README, encoding="utf-8")
     write_manifest(root, [csv, readme])
@@ -219,6 +240,19 @@ def synthetic_candidates(synthetic_root: Path) -> Path:
 
     load.load(synthetic_root)
     return synthetic_root
+
+
+@pytest.fixture
+def run_extended_candidates(tmp_path: Path) -> Path:
+    """A root built with ``RUN_EXTRA_CORE`` after ``load.load``: 16 rows, 9 candidates (plan 04-06).
+
+    Lives in a subdirectory of ``tmp_path`` so it can be used beside ``synthetic_candidates``.
+    """
+    from llm4pol.data import load
+
+    root = make_synthetic_root(tmp_path / "extended", extra_core=RUN_EXTRA_CORE)
+    load.load(root)
+    return root
 
 
 # --------------------------------------------------------------------------
