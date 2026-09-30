@@ -439,3 +439,33 @@ A note on the resume evidence (plan 04-09): the command-line verbs stamp the wal
 ## Data policy
 
 This file quotes counts only from the pinned table: the sizes of the two populations, the counts below a threshold, the distinct counts, the feasible counts, and the byte lengths of the record the run wrote. No id, repeat unit, SMILES or per-candidate value of the pinned table appears in it. Every 16-hex token in it is a fixture id, and every per-candidate value an invented fixture value. The run on the pinned table lives in a temporary directory outside the repository; `git ls-files experiments data/` prints the four tracked files (the two manifests, the data README, the experiments README) and nothing else.
+
+## CI
+
+One `workflow_dispatch` run of the `check` workflow on the pushed tip, after the local gate printed `SUMMARY: 7/7 steps passed`, the history scan reported zero hits for every class and `dotenv-path-in-history: 0 hit(s)`, `git ls-files experiments` printed the README only and `git ls-files data/` the two manifests and the README only. The tip was pushed with `git push origin main` (`f850b2d..f52ff67`) before the run was dispatched with `gh workflow run check --ref main`; the run below is the one whose `headSha` equals that tip.
+
+CI run id: 36695769247
+CI head sha: f52ff6732eb130aca5e553509d1a3f3ed05ae491
+check (windows-latest): success
+check (ubuntu-latest): success
+
+`gh run view 36695769247 --json databaseId,headSha,event,headBranch,conclusion,url,jobs`, reduced to the run fields and the name and conclusion of each job:
+
+```
+{"conclusion":"success","databaseId":36695769247,"event":"workflow_dispatch","headBranch":"main","headSha":"f52ff6732eb130aca5e553509d1a3f3ed05ae491","jobs":[{"conclusion":"success","name":"check (ubuntu-latest)"},{"conclusion":"success","name":"check (windows-latest)"}],"url":"https://github.com/kn1218/llm4pol/actions/runs/36695769247"}
+```
+
+The log lines of `gh run view 36695769247 --log` that match `SUMMARY:`, `Contracts: `, `llm4polcheck inventory` and `passed` (the job name and step are the log's own prefix; timestamps are the runners'):
+
+```
+check (ubuntu-latest)	Run pixi run --manifest-path env/pixi.toml check	2026-09-30T09:23:28.5681600Z Contracts: 5 kept, 0 broken.
+check (ubuntu-latest)	Run pixi run --manifest-path env/pixi.toml check	2026-09-30T09:23:28.5682151Z llm4polcheck inventory: 9 entries, 16 instances processed
+check (ubuntu-latest)	Run pixi run --manifest-path env/pixi.toml check	2026-09-30T09:23:41.8635157Z 370 passed, 22 skipped in 9.26s
+check (ubuntu-latest)	Run pixi run --manifest-path env/pixi.toml check	2026-09-30T09:23:41.8635400Z SUMMARY: 7/7 steps passed
+check (windows-latest)	Run pixi run --manifest-path env/pixi.toml check	2026-09-30T09:23:53.4179725Z Contracts: 5 kept, 0 broken.
+check (windows-latest)	Run pixi run --manifest-path env/pixi.toml check	2026-09-30T09:23:53.4181184Z llm4polcheck inventory: 9 entries, 16 instances processed
+check (windows-latest)	Run pixi run --manifest-path env/pixi.toml check	2026-09-30T09:24:29.3955734Z 370 passed, 22 skipped in 26.76s
+check (windows-latest)	Run pixi run --manifest-path env/pixi.toml check	2026-09-30T09:24:29.3956803Z SUMMARY: 7/7 steps passed
+```
+
+Both legs print the three lines of the gate and one pytest summary line, and both report the same counts: `370 passed, 22 skipped`. The 22 skipped tests are the difference between the local run, where the pinned files are present and 392 tests pass, and a leg without them (392 = 370 + 22); the five tests of `tests/test_run_real_file.py` skip there by construction of the `real_processed` fixture, with its stated reason. The pinned fixture ledger reduced to the same sha256 on both platforms because `test_committed_fixture_ledger_reduces_to_the_pinned_bytes` is among the passed tests of both legs and cannot skip: it asks for no fixture that depends on a data file, it reads the committed `tests/fixtures/run/reference-ledger.jsonl` and compares the reduced `results.csv`, `usage.json` and `run_summary.json` with hashes that were derived by hand or recorded before this run. This section was committed after the run it cites.
