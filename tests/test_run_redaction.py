@@ -48,6 +48,23 @@ MUST_REDACT = (
     "x_api_key",
     "openaiApiKey",
     "signing_key",
+    # RR-6
+    "api_keys",
+    "apiKeys",
+    "private_keys",
+    "access_keys",
+    "passphrase",
+    "db_passphrase",
+    "auth_header",
+    "authHeader",
+    "auth_mode",
+    "auth_token",
+    "oauth",
+    "OAuth",
+    "oauth_token",
+    "x_oauth_client",
+    "secrets",
+    "passwords",
 )
 MUST_SURVIVE = (
     "tokens",
@@ -66,7 +83,11 @@ MUST_SURVIVE = (
     "provider_key_configured",
     "seed",
     "hypothesis",
+    "authored_by",
+    "author_name",
+    "author_",
 )
+BOOL_NAMES = ("is_secret", "no_credentials", "secret_santa", "has_password", "auth_required")
 CONTROLS = (
     "openai_secret_key",
     "anthropic_secret_key",
@@ -104,6 +125,41 @@ def test_a_credential_shaped_value_is_masked_under_any_key(control: str) -> None
     assert config.redact({"notes": ["fine", f"see {value} here"]}) == {
         "notes": ["fine", config.REDACTED]
     }
+
+
+def _jwt() -> str:
+    """Three base64url segments, the first the encoding of ``{"alg":...``; built at run time."""
+    return ".".join(("eyJ" + "hbGciOiJIUzI1NiJ9", "eyJ" + "zdWIiOiIxMjM0In0", "c2ln" + "-nature_1"))
+
+
+def test_a_jwt_shaped_value_is_masked_under_any_key_and_inside_text() -> None:
+    token = _jwt()
+    assert config.redact({"prompt_versions": {"v": token}}) == {
+        "prompt_versions": {"v": config.REDACTED}
+    }
+    assert config.redact({"notes": [f"header was {token}"]}) == {"notes": [config.REDACTED]}
+    unsigned = ".".join(("eyJ" + "hbGciOiJub25lIn0", "eyJ" + "zdWIiOiIxIn0", ""))
+    assert config.redact({"v": unsigned}) == {"v": config.REDACTED}
+
+
+def test_things_that_only_start_like_a_jwt_are_kept() -> None:
+    kept = {
+        "a": "eyJ.a.b",  # too short to be a header
+        "b": "eyJhbGciOiJIUzI1NiJ9",  # one segment
+        "c": "eyJhbGciOiJIUzI1NiJ9.e30",  # two segments
+        "d": "version.eyJhbGciOiJIUzI1NiJ9.a.b",  # not at the start of a token
+        "e": "see docs/eyJ/one.two.three",
+    }
+    assert config.redact(kept) == kept
+
+
+@pytest.mark.parametrize("name", BOOL_NAMES)
+def test_a_boolean_under_a_secret_looking_name_is_never_turned_into_a_string(name: str) -> None:
+    assert config.redact({name: True}) == {name: True}
+    assert config.redact({name: False})[name] is False
+    assert config.redact({"outer": [{name: True}]}) == {"outer": [{name: True}]}
+    assert config.redact({name: "x"}) == {name: config.REDACTED}  # a string there is still masked
+    assert config.redact({name: 0}) == {name: config.REDACTED}  # only a real bool is exempt
 
 
 def test_values_that_only_look_a_little_like_a_key_are_kept() -> None:

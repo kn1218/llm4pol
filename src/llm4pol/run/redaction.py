@@ -7,15 +7,21 @@ value), and this covers the one open mapping the schema admits (``prompt_version
 Phase 6 adds (D-01).
 
 Names are read after splitting camel case and ``-`` into ``_`` and lowering the case, so
-``apiKey``, ``API-KEY`` and ``api_key`` are one name. ``secret``, ``password``, ``passwd``,
-``credential(s)``, ``private_key`` and ``authorization`` redact as a segment anywhere in the
-name; ``api_key``, ``access_key``, ``signing_key``, ``encryption_key``, ``token``, ``pwd``,
-``auth`` and ``bearer`` only as the end of it, so ``tokens``, ``max_tokens`` and ``token_budget``
-(usage numbers), ``key`` and ``author`` are kept (Pitfall 10).
+``apiKey``, ``API-KEY`` and ``api_key`` are one name. ``secret(s)``, ``password(s)``, ``passwd``,
+``passphrase``, ``credential(s)``, ``private_key(s)``, ``authorization``, ``auth_header`` and
+``oauth`` redact as a segment anywhere in the name; ``api_key(s)``, ``access_key(s)``,
+``signing_key(s)``, ``encryption_key(s)``, ``token``, ``pwd``, ``auth`` and ``bearer`` only as the
+end of it; and a name that starts ``auth_`` redacts. So ``tokens``, ``max_tokens`` and
+``token_budget`` (usage numbers), ``key``, ``author`` and ``author_name`` are kept (Pitfall 10).
+
+A ``bool`` is never a credential: a secret-looking name holding ``True`` or ``False``
+(``is_secret``, ``no_credentials``, ``secret_santa``) keeps its value unchanged. A ``bool`` is
+never turned into a string.
 
 The shapes are the ones of ``scripts/history_secret_scan.py`` in short form: an ``sk-`` key, a
-GitHub, Hugging Face, Google, AWS or Slack token, a PEM private-key header and a ``Bearer``
-credential, found anywhere in a string.
+GitHub, Hugging Face, Google, AWS or Slack token, a PEM private-key header, a ``Bearer``
+credential and a JWT (three dot-separated base64url segments, the first starting ``eyJ``), found
+anywhere in a string.
 
 The module imports the standard library only.
 """
@@ -33,11 +39,13 @@ _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 _SEPARATORS = re.compile(r"[-\s.]+")
 
 _SEGMENT_ANYWHERE = re.compile(
-    r"(?:^|_)(?:secret|password|passwd|credentials?|private_?key|authorization)(?:_|$)"
+    r"(?:^|_)(?:secrets?|passwords?|passwd|passphrases?|credentials?|private_?keys?|"
+    r"authorization|auth_header|oauth)(?:_|$)"
 )
 _SEGMENT_AT_END = re.compile(
-    r"(?:^|_)(?:api_?key|(?:access|signing|encryption)_?key|token|pwd|auth|bearer)$"
+    r"(?:^|_)(?:api_?keys?|(?:access|signing|encryption)_?keys?|token|pwd|auth|bearer)$"
 )
+_AUTH_PREFIX = re.compile(r"auth_")
 
 _VALUE_SHAPES: tuple[re.Pattern[str], ...] = tuple(
     re.compile(shape)
@@ -51,6 +59,7 @@ _VALUE_SHAPES: tuple[re.Pattern[str], ...] = tuple(
         r"(?<![A-Za-z0-9_])xox[bapsr]-[0-9A-Za-z-]{10,}",
         r"-----BEGIN [A-Z ]*PRIVATE KEY[A-Z ]*-----",
         r"(?i)(?<![A-Za-z0-9_])bearer\s+[A-Za-z0-9._~+/=-]{20,}",
+        r"(?<![A-Za-z0-9_.-])eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{2,}\.[A-Za-z0-9_-]*",
     )
 )
 
@@ -62,7 +71,11 @@ def _normalised(name: object) -> str:
 def is_secret_name(name: object) -> bool:
     """True when ``name`` reads as the name of a credential."""
     lowered = _normalised(name)
-    return bool(_SEGMENT_ANYWHERE.search(lowered) or _SEGMENT_AT_END.search(lowered))
+    return bool(
+        _SEGMENT_ANYWHERE.search(lowered)
+        or _SEGMENT_AT_END.search(lowered)
+        or _AUTH_PREFIX.match(lowered)
+    )
 
 
 def is_secret_value(text: str) -> bool:
@@ -75,11 +88,12 @@ def redact(value: Any) -> Any:
 
     Mappings and lists are followed to any depth (a tuple comes back as a list); the argument is
     never changed. The rules read names and string shapes only, so a number under ``tokens``
-    survives.
+    survives, and a ``bool`` keeps its value under any name.
     """
     if isinstance(value, Mapping):
         return {
-            key: REDACTED if is_secret_name(key) else redact(item) for key, item in value.items()
+            key: REDACTED if is_secret_name(key) and not isinstance(item, bool) else redact(item)
+            for key, item in value.items()
         }
     if isinstance(value, list | tuple):
         return [redact(item) for item in value]
