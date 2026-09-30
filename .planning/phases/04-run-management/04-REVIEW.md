@@ -354,6 +354,29 @@ out-of-sequence event, so the seq-gap reader test writes its gap as raw bytes; t
 rejects non-canonical bytes and float-valued integers, so a hand-edited or CRLF-converted ledger
 that read before is now refused.
 
+### Re-review fixes (RR-2..RR-8)
+
+Fixer: Claude (gsd-code-fixer), 2026-09-30, sequential on the main working tree, one commit per
+item, test-first (each new test was run red for the stated defect before the fix, except RR-8, whose
+patterns already passed, so its check is proved on anchored and unanchored samples) and behind
+`pixi run --manifest-path env/pixi.toml check` printing `SUMMARY: 7/7 steps passed` and
+`Contracts: 5 kept, 0 broken`. No pinned byte or constant was edited. `reduce.py` is 399 lines,
+`resume.py` 399 and `ledger.py` 328; the new helpers went into `atomic.py`, so the module
+inventory of the run package is unchanged.
+
+| Item | Outcome | Commit | Notes |
+|---|---|---|---|
+| RR-2 | fixed | `01cb404` | `lock.held` releases explicitly in a `finally` before the handle closes: seek to the locked offset and `msvcrt.locking(fd, LK_UNLCK, 1)` on Windows, `LOCK_UN` on POSIX. A refused handle unlocks nothing (tested: the first holder still holds the lock). The re-lock after killing a holder retries for up to 2 s and still asserts the lock is acquirable. Tests spy the unlock call and its offset, also when the block raises. |
+| RR-3 | fixed | `584d3d4` | `atomic._publish`: `os.link` then unlink of the temp on POSIX, `os.rename` on Windows; both refuse an existing target. `write_new` maps that to `FileExistsError` (never `RecordWriteError`) and removes the temp on every failure. `atomic.write_new_or_keep` judges a target that exists by its bytes; `reduce.write_outputs`, and so `replay --out`, keeps an equal file and raises `LedgerIntegrityError` (exit 4) for a differing one. Tested with a writer that appears between the pre-check and the publish, in both publish modes (the rename mode only on Windows, where it is the real one). Existing tests that failed `os.replace` now fail `atomic._publish`. |
+| RR-4 | fixed (removal) | `7fce9bf` | `atomic.remove_stray_temporaries` removes regular files whose whole name is `.<name>.<pid>.tmp` (not directories, symlinks or any other shape); `drive` calls it under the run lock before reading the ledger, for open and closed runs. Residual risk, documented in the function: a `replay` writing outputs into that directory at that moment takes no lock and would fail with an I/O error; a rerun succeeds. |
+| RR-5 | fixed | `60feb86` | `ledger.append` docstring: the caller must hold `lock.held` for the appending session; the tail check cannot close the window between check and write. Pinned by a test on the public `llm4pol.run.append`. |
+| RR-6 | fixed | `3233cc7` | Names added: `api_keys`, `private_keys`, `access/signing/encryption_keys`, `secrets`, `passwords` (plurals beyond the request, for consistency), `passphrase`, `auth_header`, `oauth` and any name starting `auth_`. Values: a JWT-shaped string (`eyJ` header, three dot-separated base64url segments, the third may be empty) is masked anywhere in a string. A `bool` under a secret-looking name keeps its value (`is_secret`, `no_credentials`, `secret_santa`); a non-bool value there (a string, `0`) is still masked. The committed run-meta example redacts to itself. Owner note: `auth_` is a prefix rule, so `auth_required: "x"` (a string) is masked; only a real `bool` is exempt. |
+| RR-8 | fixed | `694ae21` | `tests/test_check_inventory.py` walks `protocol/schemas/*.json` and fails on a `pattern` that is not `^...$` or is a top-level alternation (`^a\|b$`). All nine schemas already pass. |
+| (doc) | fixed | `09796b3` | The `__main__` docstring states that `replay` and `usage` take no lock and can see a torn final line of a live run (exit 2) or a ledger that no longer matches the driver's files (exit 4). Pinned by a test. No behaviour change. |
+
+Out of scope, not touched: RR-7 (Phase 2/3 validators; the import boundary forbids `data` and
+`evaluate` importing `run`). Still deferred by the orchestrator: WR-04, IN-01, IN-05, IN-07.
+
 ---
 
 _Reviewed: 2026-09-30_
