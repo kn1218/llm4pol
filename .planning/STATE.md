@@ -1,20 +1,20 @@
 ---
 gsd_state_version: "1.0"
 milestone: v1.0
-current_phase: 4
+current_phase: 04
 current_phase_name: Run Management
-current_plan: Not started
-status: planning
-stopped_at: Completed 02-06-PLAN.md
-last_updated: "2026-09-24T06:09:25.920Z"
-last_activity: 2026-09-24
-last_activity_desc: 02-06 executed (ADR-0006 tacticity resolution); Phase 2 complete at 6/6
-state_head: 1277838064612da34f9cb665fdf75eebf1ee4df1
+current_plan: 2
+status: executing
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-09-30T07:24:55.028Z"
+last_activity: 2026-09-30
+last_activity_desc: Phase 04 execution started
+state_head: 3cb130db708eedd871de23b3dde728012292a92c
 progress:
   total_phases: 8
-  completed_phases: 3
-  total_plans: 10
-  completed_plans: 10
+  completed_phases: 0
+  total_plans: 19
+  completed_plans: 11
 ---
 
 # Project State
@@ -25,15 +25,15 @@ See: .planning/PROJECT.md (updated 2026-09-21)
 Charter: docs/MASTER-PLAN.md v1.0 (approved 2026-09-21, ADR-0005) — highest source of truth (ADR-0002)
 
 **Core value:** The loop attributes a measured gain to a design axis under a matched evaluation budget — if that attribution is not reproducible, nothing else the system produces is a result (charter §1).
-**Current focus:** Phase 4 — Run Management (charter M3)
+**Current focus:** Phase 04 — Run Management
 
 ## Current Position
 
-Phase: 4 — Run Management
-Current Plan: Not started
-Total Plans in Phase: 3
-Status: Ready to plan
-Last activity: 2026-09-29 — Phases 1–3 complete and verified; ADR-0006 rework (02-06) verified; owner decisions D-21..D-30 recorded; Phase 4 context ready for planning
+Phase: 04 (Run Management) — EXECUTING
+Current Plan: 2
+Total Plans in Phase: 9
+Status: Ready to execute
+Last activity: 2026-09-30 — Phase 04 execution started
 
 Progress: [████░░░░░░] 38%
 
@@ -73,6 +73,7 @@ Progress: [████░░░░░░] 38%
 | Phase 03 P02 | 9min | 2 tasks | 10 files |
 | Phase 03 P03 | 13min | 3 tasks | 6 files |
 | Phase 02 P06 | 30min | 5 tasks | 21 files |
+| Phase 04 P01 | 25 min | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -104,6 +105,7 @@ Recent decisions affecting current work:
 - [Phase 2]: 02-06: tacticity_multi_label_canonical counts every in-scope canonical with two or more distinct non-empty labels, not only those carrying an empty row: ADR-0006's Context table states 2 and the plan's extra conjunct publishes 0
 - [Phase 2]: 02-06: documented findings that drifted inside their own tolerance were not republished, so the drift budget stays spent-down rather than reset
 - [Phase 2]: 02-06: D-11 promoted to a guarded INVARIANTS.md row in the same commit as the call site (ADR-0006, DATA-10)
+- [Phase 04]: 04-01: run_closed is pinned to iteration 0 for both reasons (RESEARCH A4); TornTail.last_lf_offset is the offset of the last LF byte (-1 when none); ledger.append refuses a missing ledger and a torn tail — Run-scoped events use iteration 0 and iterations count from 1; a torn tail is refused, never repaired (CONTEXT R-6)
 
 ### Pending Todos
 
@@ -126,6 +128,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-24T06:09:24.494Z
-Stopped at: Completed 02-06-PLAN.md
+Last session: 2026-09-30T07:24:47.947Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None

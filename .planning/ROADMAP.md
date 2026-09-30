@@ -149,12 +149,12 @@ Charter §8: M2 ∥ M3 is permitted (M3 needs only the response format), but ins
   3. `usage.json` totals for `evals` and `cpu_hours` equal the ledger sums and are kept as two separate currencies (charter §13 M3, A-3)
 
 **Freezes**: run record format (`protocol/schemas/ledger-event.json`, `experiments/<run-id>/{meta.json, ledger.jsonl, usage.json, results.csv, run_summary.json}`, columns and definitions per ADR-0008), problem spec (`protocol/schemas/problem-spec.json`), A-3 (two budget currencies) and A-6 (append-only run directory, rerun gets a new id) as ledger tests (charter §7, §13 M3)
-**Plans**: 9 plans
+**Plans**: 1/9 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — Record library under the run contract: run id, strict JSON in two byte forms, the problem spec and its schema, the run directory, the ledger and its schema; A-6 and the ledger half of A-3 promoted (wave 1)
+- [x] 04-01-PLAN.md — Record library under the run contract: run id, strict JSON in two byte forms, the problem spec and its schema, the run directory, the ledger and its schema; A-6 and the ledger half of A-3 promoted (wave 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -266,7 +266,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 (ch
 | 1. Foundation | 1/1 | Complete    | 2026-09-22 |
 | 2. Data Foundation | 6/6 | Complete    | 2026-09-24 |
 | 3. Evaluator (table backend) | 3/3 | Complete    | 2026-09-22 |
-| 4. Run Management | 0/9 | Not started | - |
+| 4. Run Management | 1/9 | In Progress|  |
 | 5. Deterministic End-to-End | 0/? | Not started | - |
 | 6. LLM Loop | 0/? | Not started | - |
 | 7. Variance, Controls, Pre-registration | 0/? | Not started | - |
