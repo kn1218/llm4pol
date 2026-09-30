@@ -198,11 +198,13 @@ def step_mypy() -> bool:
 
 
 def step_import_linter() -> bool:
-    # [tool.importlinter] declares four contracts: the Phase 2 llm4pol.data
-    # contract (D-8) and, since Phase 3 (plan 03-03), A-1 (evaluate never
+    # [tool.importlinter] declares five contracts: the Phase 2 llm4pol.data
+    # contract (D-8), since Phase 3 (plan 03-03) A-1 (evaluate never
     # imports loop / llm / run), A-2 (loop never imports the radonpy backend,
     # optional-layers form) and the llm rule (only loop.agents may import
-    # llm). The step prints each contract's KEPT / BROKEN line and the
+    # llm) and, since Phase 4 (plan 04-01), the run contract (llm4pol.run
+    # never imports loop or llm, CONTEXT D-06). The step prints each
+    # contract's KEPT / BROKEN line and the
     # `Contracts: N kept, M broken.` summary the phase evidence cites.
     ok, output = _run(lint_imports_argv(), ROOT)
     _print_output(output)

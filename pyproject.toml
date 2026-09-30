@@ -109,6 +109,18 @@ ignore_imports = [
 ]
 unmatched_ignore_imports_alerting = "none"
 
+# Phase 4 (CONTEXT D-06; charter section 6 row `run`): run management never
+# reaches the loop or the LLM adapter. This contract lands in the commit that
+# creates llm4pol.run, because a forbidden contract errors on an absent source
+# (F-72). The forbidden modules do not exist yet; import-linter skips absent
+# forbidden modules and reports KEPT (F-18). Plan 04-03 proves the contract
+# live on a scratch copy, so a KEPT that only means "absent" is told apart.
+[[tool.importlinter.contracts]]
+name = "llm4pol.run never imports llm4pol.loop or llm4pol.llm (charter section 6, CONTEXT D-06)"
+type = "forbidden"
+source_modules = ["llm4pol.run"]
+forbidden_modules = ["llm4pol.loop", "llm4pol.llm"]
+
 # Explicit schema-validation inventory (CONTEXT D-06; precedent [tool.calfcheck]):
 # a sibling-schema discovery rule would let a deleted or renamed schema silently
 # remove its own validation. This table is authoritative and non-empty by

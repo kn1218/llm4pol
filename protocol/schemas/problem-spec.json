@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kn1218/llm4pol/protocol/schemas/problem-spec.json",
+  "title": "LLM4POL problem spec -- charter section 7 (M3 freeze), CONTEXT D-05",
+  "description": "The problem a run is opened on: one objective property with a direction, at most eight constraints on other registry properties, the objective form, the per-iteration budget, the pinned snapshot and the seed. Every object is closed and `schema_version` is pinned. The property enums repeat the nine keys of property-registry.json (a test compares the two lists, so the list is not published twice). This body has no internal reference so ledger-event.json can embed it verbatim as `$defs/problem`. A change that a reported result depends on is a new schema version in a new file (charter section 4 A-5), never an edit of this one once results cite it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "objective", "constraints", "form", "budget", "table", "seed"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "objective": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["property", "direction"],
+      "properties": {
+        "property": {
+          "enum": [
+            "thermal_conductivity",
+            "dielectric_const_dc",
+            "tg",
+            "rg",
+            "r2",
+            "ffv",
+            "sp_ced",
+            "density",
+            "refractive_index"
+          ]
+        },
+        "direction": {"enum": ["max", "min"]}
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["property", "op", "value"],
+        "properties": {
+          "property": {
+            "enum": [
+              "thermal_conductivity",
+              "dielectric_const_dc",
+              "tg",
+              "rg",
+              "r2",
+              "ffv",
+              "sp_ced",
+              "density",
+              "refractive_index"
+            ]
+          },
+          "op": {"enum": ["<=", ">="]},
+          "value": {"type": "number"}
+        }
+      }
+    },
+    "form": {
+      "description": "`constrained_single` is the only form at M3. `pareto` is reserved for the D-16 gate (objective form, fixed at the Phase 7 pre-registration) and arrives as a new schema version, not as an edit of this enum.",
+      "enum": ["constrained_single"]
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["iterations", "candidates_per_beam", "beams"],
+      "properties": {
+        "iterations": {"type": "integer", "minimum": 1},
+        "candidates_per_beam": {"type": "integer", "minimum": 1},
+        "beams": {"type": "integer", "minimum": 1}
+      }
+    },
+    "table": {"type": "string", "pattern": "^polyomics:general_polymers@[0-9a-f]{8}$"},
+    "seed": {"type": "integer", "minimum": 0}
+  }
+}
