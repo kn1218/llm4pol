@@ -3,18 +3,18 @@ gsd_state_version: "1.0"
 milestone: v1.0
 current_phase: 04
 current_phase_name: Run Management
-current_plan: 4
+current_plan: 5
 status: executing
-stopped_at: Completed 04-03-PLAN.md
-last_updated: "2026-09-30T07:45:57.021Z"
+stopped_at: Completed 04-04-PLAN.md
+last_updated: "2026-09-30T07:53:08.513Z"
 last_activity: 2026-09-30
 last_activity_desc: Phase 04 execution started
-state_head: 2f005646a8cf9089e4e2cec37b6548013f33d4c0
+state_head: 536ee38fbb23327e8fd756d8494046d9fa2ed665
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 19
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Charter: docs/MASTER-PLAN.md v1.0 (approved 2026-09-21, ADR-0005) — highest so
 ## Current Position
 
 Phase: 04 (Run Management) — EXECUTING
-Current Plan: 4
+Current Plan: 5
 Total Plans in Phase: 9
 Status: Ready to execute
 Last activity: 2026-09-30 — Phase 04 execution started
@@ -76,6 +76,7 @@ Progress: [████░░░░░░] 38%
 | Phase 04 P01 | 25 min | 2 tasks | 14 files |
 | Phase 04 P02 | 12 min | 1 tasks | 12 files |
 | Phase 04 P03 | 15min | 1 tasks | 6 files |
+| Phase 04 P04-04 | 12min | 1 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -110,6 +111,7 @@ Recent decisions affecting current work:
 - [Phase 04]: 04-01: run_closed is pinned to iteration 0 for both reasons (RESEARCH A4); TornTail.last_lf_offset is the offset of the last LF byte (-1 when none); ledger.append refuses a missing ledger and a torn tail — Run-scoped events use iteration 0 and iterations count from 1; a torn tail is refused, never repaired (CONTEXT R-6)
 - [Phase 04]: 04-02: the run driver enforces the budget in evals only (limit iterations x candidates_per_beam x beams); dirty is whole-tree until 04-06; the package root does not export the function reduce
 - [Phase 04]: 04-03: experiments/README.md says run-meta.json exists today and the usage and run_summary schemas arrive later in Phase 4; PREREG file re-include left to Phase 7 (F-70)
+- [Phase 04]: 04-04: meta example made with an empty environment mapping injected by replacing resume.build_meta with a partial; ledger examples are the first event of each kind of the tracer run
 
 ### Pending Todos
 
@@ -132,6 +134,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-30T07:45:56.934Z
-Stopped at: Completed 04-03-PLAN.md
+Last session: 2026-09-30T07:53:08.418Z
+Stopped at: Completed 04-04-PLAN.md
 Resume file: None
