@@ -21,6 +21,7 @@ from conftest import REPO_ROOT
 from llm4pol.run import config, jsonio, ledger
 from run_support import (
     CANDIDATE_A,
+    CANDIDATE_B,
     EVENT_KINDS,
     FIXED_RUN_ID,
     charter_problem,
@@ -312,3 +313,300 @@ def test_embedded_definitions_equal_their_sources() -> None:
     assert _refs(_load("ledger-event.json")) and all(
         ref.startswith("#/") for ref in _refs(_load("ledger-event.json"))
     ), "the schema must be self-contained: no cross-file reference (F-53)"
+
+
+# --------------------------------------------------------------------------
+# Integrity of the whole record (plan 04-05, task 1; RUN-02, CONTEXT D-03; F-35, F-39, F-56)
+# The defective ledgers are written by hand as bytes, so each differs from a valid one in the
+# single defect under test; ``ledger.append`` checks a line, never the sequence.
+# --------------------------------------------------------------------------
+
+CANDIDATE_OTHER = "d751b16095852737"
+
+
+def _iteration_event(kind: str, iteration: int = 1) -> dict[str, Any]:
+    return valid_event(kind, iteration=iteration)
+
+
+def _selection(
+    beam: str = "full", candidates: tuple[str, ...] = (CANDIDATE_A, CANDIDATE_B)
+) -> dict[str, Any]:
+    return valid_event("selection", payload={"beam": beam, "candidates": list(candidates)})
+
+
+def _evaluation(candidate: str = CANDIDATE_A, beam: str = "full") -> dict[str, Any]:
+    payload = valid_payload("evaluation")
+    payload["beam"] = beam
+    payload["candidate_id"] = candidate
+    payload["results"] = [valid_result(candidate)]
+    return valid_event("evaluation", payload=payload)
+
+
+def _no_match(beam: str = "chem") -> dict[str, Any]:
+    return valid_event("no_match", payload={"beam": beam})
+
+
+def _numbered(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The events with ``seq`` 1..n, so a sequence defect is never a ``seq`` defect."""
+    return [{**event, "seq": position} for position, event in enumerate(events, start=1)]
+
+
+def _hand_written(events: list[dict[str, Any]], header: dict[str, Any] | None = None) -> bytes:
+    head = jsonio.canonical_bytes(header if header is not None else valid_header())
+    return head + b"".join(jsonio.canonical_bytes(event) for event in _numbered(events))
+
+
+def _refused(
+    tmp_path: Path, raw: bytes, error: type[ledger.LedgerError], *fragments: str
+) -> ledger.LedgerError:
+    path = tmp_path / "defective.jsonl"
+    path.write_bytes(raw)
+    with pytest.raises(error) as caught:
+        ledger.read(path)
+    for fragment in fragments:
+        assert fragment in str(caught.value), (fragment, str(caught.value))
+    assert path.read_bytes() == raw, "a refused read leaves the bytes as found"
+    return caught.value
+
+
+def test_truncation_at_every_byte_of_the_last_line_is_refused(tmp_path: Path) -> None:
+    path = tmp_path / ledger.LEDGER_NAME
+    raw = _ledger_with(path, _five_events()[:4])
+    last = len(raw.split(b"\n")[-2]) + 1  # the last line, LF included
+    assert last > 100
+
+    for cut in range(1, last):
+        path.write_bytes(raw[:-cut])
+        with pytest.raises(ledger.TornTail) as torn:
+            ledger.read(path)
+        assert torn.value.last_lf_offset == len(raw) - last - 1
+        assert torn.value.trailing_bytes == last - cut
+        assert path.read_bytes() == raw[:-cut], "a refused read repairs nothing"
+
+    path.write_bytes(raw[:-1])  # only the final LF is missing: the JSON is complete
+    assert json.loads(raw[:-1].split(b"\n")[-1])["event"] == "evaluation"
+    with pytest.raises(ledger.TornTail) as complete:
+        ledger.read(path)
+    assert complete.value.trailing_bytes == last - 1
+
+    path.write_bytes(raw[:-last])  # the whole last line removed: a shorter, valid ledger
+    assert len(ledger.read(path).events) == 3
+
+
+def _run(*events: dict[str, Any]) -> list[dict[str, Any]]:
+    return [valid_event("run_opened"), *events]
+
+
+DUPLICATES = {
+    "a second selection of one beam": (
+        _run(_iteration_event("iteration_opened"), _selection(), _selection()),
+        ("duplicate", "full"),
+    ),
+    "a no_match for a beam with a selection": (
+        _run(_iteration_event("iteration_opened"), _selection("full"), _no_match("full")),
+        ("duplicate", "full"),
+    ),
+    "a selection for a beam with a no_match": (
+        _run(_iteration_event("iteration_opened"), _no_match("chem"), _selection("chem")),
+        ("duplicate", "chem"),
+    ),
+    "one candidate evaluated twice in one beam": (
+        _run(
+            _iteration_event("iteration_opened"),
+            _selection(),
+            _evaluation(CANDIDATE_A),
+            _evaluation(CANDIDATE_A),
+        ),
+        ("duplicate", CANDIDATE_A),
+    ),
+    "two iteration_opened for one iteration": (
+        _run(_iteration_event("iteration_opened"), _iteration_event("iteration_opened")),
+        ("duplicate", "iteration_opened"),
+    ),
+    "two iteration_closed for one iteration": (
+        _run(
+            _iteration_event("iteration_opened"),
+            _iteration_event("iteration_closed"),
+            _iteration_event("iteration_closed"),
+        ),
+        ("duplicate", "iteration_closed"),
+    ),
+    "two run_opened": (_run(valid_event("run_opened")), ("duplicate", "run_opened")),
+}
+
+
+@pytest.mark.parametrize("case", list(DUPLICATES))
+def test_duplicate_event_keys_are_refused(case: str, tmp_path: Path) -> None:
+    events, fragments = DUPLICATES[case]
+    _refused(tmp_path, _hand_written(events), ledger.LedgerIntegrityError, *fragments)
+
+
+LIFECYCLE = {
+    "an event after run_closed": (
+        _run(valid_event("run_closed"), _iteration_event("iteration_opened")),
+        ("run_closed",),
+    ),
+    "a first event that is not run_opened": (
+        [_iteration_event("iteration_opened")],
+        ("run_opened",),
+    ),
+    "an evaluation whose beam has no selection": (
+        _run(_iteration_event("iteration_opened"), _evaluation()),
+        ("selection",),
+    ),
+    "an evaluation of a candidate the selection does not name": (
+        _run(_iteration_event("iteration_opened"), _selection(), _evaluation(CANDIDATE_OTHER)),
+        (CANDIDATE_OTHER,),
+    ),
+    "iteration 2 opened before iteration 1 is closed": (
+        _run(_iteration_event("iteration_opened", 1), _iteration_event("iteration_opened", 2)),
+        ("iteration",),
+    ),
+    "an iteration_opened that skips a number": (
+        _run(_iteration_event("iteration_opened", 2)),
+        ("iteration",),
+    ),
+    "a selection outside an open iteration": (_run(_selection()), ("iteration",)),
+    "an iteration_closed that was never opened": (
+        _run(_iteration_event("iteration_closed")),
+        ("iteration",),
+    ),
+}
+
+
+@pytest.mark.parametrize("case", list(LIFECYCLE))
+def test_lifecycle_order_is_enforced(case: str, tmp_path: Path) -> None:
+    events, fragments = LIFECYCLE[case]
+    _refused(tmp_path, _hand_written(events), ledger.LedgerIntegrityError, *fragments)
+
+
+def test_a_valid_lifecycle_is_accepted_with_a_budget_close_in_an_open_iteration(
+    tmp_path: Path,
+) -> None:
+    closed = valid_event(
+        "run_closed",
+        payload={"reason": "budget_exhausted", "requested": 1, "remaining": 0, "limit": 2},
+    )
+    events = _run(_iteration_event("iteration_opened"), _selection(), _evaluation(), closed)
+    path = tmp_path / ledger.LEDGER_NAME
+    path.write_bytes(_hand_written(events))
+    read = ledger.read(path)
+    assert read.closed
+    keys = [ledger.event_key(event) for event in read.events]
+    assert len(keys) == len(set(keys)) == 5
+    assert keys[0] == ("run_opened", 0) and keys[2] == ("beam", 1, "full")
+    assert keys[3] == ("evaluation", 1, "full", CANDIDATE_A)
+    assert ledger.event_key(read.events[2]) == ledger.event_key(
+        ledger.Event.from_json(_no_match("full") | {"seq": 9, "iteration": 1})
+    ), "a selection and a no_match share one key space"
+
+
+def test_a_second_header_or_a_foreign_run_id_is_refused(tmp_path: Path) -> None:
+    header = jsonio.canonical_bytes(valid_header())
+    opened = jsonio.canonical_bytes(valid_event("run_opened", 1))
+    _refused(tmp_path, header + opened + header, ledger.LedgerFormatError, ":3")
+
+    foreign = valid_event("iteration_opened", 2)
+    foreign["run_id"] = "20260101T000001Z-00000001"
+    _refused(
+        tmp_path,
+        header + opened + jsonio.canonical_bytes(foreign),
+        ledger.LedgerIntegrityError,
+        "run_id",
+    )
+
+
+def test_population_arrays_must_be_parallel(tmp_path: Path) -> None:
+    def opened(mutate: Any) -> bytes:
+        payload = copy.deepcopy(valid_payload("run_opened"))
+        mutate(payload)
+        return _hand_written([valid_event("run_opened", payload=payload)])
+
+    def short_constraint(payload: dict[str, Any]) -> None:
+        payload["populations"][0]["constraints"]["tg"] = [250.0, 260.0, 300.0]
+
+    def short_objective(payload: dict[str, Any]) -> None:
+        payload["populations"][1]["objective"] = [0.155, 0.18]
+
+    def unknown_primary(payload: dict[str, Any]) -> None:
+        payload["primary"] = "nothing"
+
+    for mutate in (short_constraint, short_objective, unknown_primary):
+        _refused(tmp_path, opened(mutate), ledger.LedgerFormatError, ":2")
+
+
+def _schema_defects() -> dict[str, tuple[str, dict[str, Any]]]:
+    populations = valid_payload("run_opened")["populations"]
+    unknown_kind = valid_event("run_opened", 1)
+    unknown_kind["event"] = "hypothesis"
+    extra_key = valid_event("run_opened", 1)
+    extra_key["note"] = "x"
+    boolean_seq = valid_event("run_opened", 1)
+    boolean_seq["seq"] = True
+    offset_ts = valid_event("run_opened", 1)
+    offset_ts["ts"] = "2026-01-01T00:00:00+09:00"
+    extra_header = valid_header()
+    extra_header["note"] = "x"
+    cached = valid_result()
+    cached["cached"] = True
+    return {
+        "an unknown event kind": ("event", unknown_kind),
+        "a selection without beam": (
+            "event",
+            valid_event("selection", 1, payload={"candidates": [CANDIDATE_A]}),
+        ),
+        "a selection with a repeated candidate": (
+            "event",
+            valid_event("selection", 1, payload={"beam": "full", "candidates": [CANDIDATE_A] * 2}),
+        ),
+        "a candidate id that is not 16 hex characters": (
+            "event",
+            valid_event("selection", 1, payload={"beam": "full", "candidates": ["ABC"]}),
+        ),
+        "an extra envelope key": ("event", extra_key),
+        "seq given as a boolean": ("event", boolean_seq),
+        "a header with an extra key": ("header", extra_header),
+        "a cached result with evals 1": (
+            "event",
+            valid_event(
+                "evaluation", 1, payload={**valid_payload("evaluation"), "results": [cached]}
+            ),
+        ),
+        "an evaluation payload carrying populations": (
+            "event",
+            valid_event(
+                "evaluation", 1, payload={**valid_payload("evaluation"), "populations": populations}
+            ),
+        ),
+        "a run_closed with an unknown reason": (
+            "event",
+            valid_event("run_closed", 1, payload={"reason": "crashed"}),
+        ),
+        "budget_exhausted without limit": (
+            "event",
+            valid_event(
+                "run_closed",
+                1,
+                payload={"reason": "budget_exhausted", "requested": 1, "remaining": 0},
+            ),
+        ),
+        "a ts with an offset instead of Z": ("event", offset_ts),
+    }
+
+
+@pytest.mark.parametrize("case", list(_schema_defects()))
+def test_ledger_schema_refuses_each_malformed_line(case: str, tmp_path: Path) -> None:
+    part, record = _schema_defects()[case]
+    path = tmp_path / ledger.LEDGER_NAME
+    if part == "header":
+        with pytest.raises(ledger.LedgerFormatError):
+            ledger.create(path, record)
+        assert not path.exists()
+        _refused(tmp_path, jsonio.canonical_bytes(record), ledger.LedgerFormatError)
+        return
+    ledger.create(path, valid_header())
+    before = path.read_bytes()
+    with pytest.raises(ledger.LedgerFormatError):
+        ledger.append(path, record)
+    assert path.read_bytes() == before
+    _refused(tmp_path, before + jsonio.canonical_bytes(record), ledger.LedgerFormatError, ":2")
