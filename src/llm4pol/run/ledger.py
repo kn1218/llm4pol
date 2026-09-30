@@ -11,8 +11,10 @@ previous bytes are a strict prefix of the file (A-6) and the file holds no CR.
 
 Reading works on bytes (F-36): the file must end in LF (``TornTail`` names the offset of the
 last LF and the bytes after it), every line is parsed strictly (no repeated key, no non-finite
-constant, F-39), line 1 must be a header, every later line an event whose ``seq`` equals its
-line index and whose ``run_id`` equals the header's.
+constant, F-39), line 1 must be the only header, every later line an event whose ``seq`` equals
+its line index and whose ``run_id`` equals the header's. One pass over the events then checks
+that no event key occurs twice, that the lifecycle is in order and that the populations of
+``run_opened`` are parallel arrays (plan 04-05). Nothing here repairs or shortens a file.
 
 The module imports the standard library, ``jsonschema``, ``llm4pol.run.jsonio``,
 ``llm4pol.run.config``, ``llm4pol.run.ids`` and ``llm4pol.data.snapshot`` only.
@@ -22,7 +24,7 @@ from __future__ import annotations
 
 import functools
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -73,11 +75,6 @@ class LedgerFormatError(LedgerError):
 
 class LedgerIntegrityError(LedgerError):
     """Lines that are each valid but do not belong together: a ``seq`` gap, a foreign run."""
-
-
-# --------------------------------------------------------------------------
-# Typed records
-# --------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -209,9 +206,72 @@ def event_record(
     }
 
 
-# --------------------------------------------------------------------------
-# Schema validation: the header line and the event lines have one validator each
-# --------------------------------------------------------------------------
+EventKey = tuple[str | int, ...]
+
+
+def event_key(event: Event) -> EventKey:
+    """What identifies an event: a ledger holds each key once (RUN-03, RESEARCH Pattern 3).
+
+    A ``selection`` and a ``no_match`` share one key space, so a beam has one or the other.
+    """
+    payload = event.payload
+    if event.event in ("selection", "no_match"):
+        return ("beam", event.iteration, str(payload["beam"]))
+    if event.event == "evaluation":
+        return ("evaluation", event.iteration, str(payload["beam"]), str(payload["candidate_id"]))
+    return (event.event, event.iteration)
+
+
+def _check_populations(payload: Mapping[str, Any], where: str) -> None:
+    names = [population["name"] for population in payload["populations"]]
+    if payload["primary"] not in names or len(set(names)) != len(names):
+        raise LedgerFormatError(f"{where}: primary {payload['primary']!r} is not one of {names}")
+    for population in payload["populations"]:
+        arrays = [population["objective"], *population["constraints"].values()]
+        if len({len(array) for array in arrays}) != 1:
+            raise LedgerFormatError(f"{where}: arrays of {population['name']!r} differ in length")
+
+
+def _check_events(events: Sequence[Event], source: str) -> None:
+    """One pass: the first event, no repeated key, nothing after run_closed, the lifecycle order."""
+    seen: set[EventKey] = set()
+    selected: dict[tuple[int, str], frozenset[str]] = {}
+    open_iteration: int | None = None
+    closed = 0
+    for position, event in enumerate(events):
+        where, kind, payload = f"{source}:{position + 2}", event.event, event.payload
+        key = event_key(event)
+        if position and events[position - 1].event == "run_closed":
+            raise LedgerIntegrityError(f"{where}: {kind} follows run_closed")
+        if key in seen:
+            raise LedgerIntegrityError(f"{where}: duplicate event {key}")
+        if not position and kind != "run_opened":
+            raise LedgerIntegrityError(f"{where}: the first event is {kind}, not run_opened")
+        seen.add(key)
+        if kind == "run_opened":
+            _check_populations(payload, where)
+        elif kind == "iteration_opened":
+            if open_iteration is not None or event.iteration != closed + 1:
+                raise LedgerIntegrityError(
+                    f"{where}: iteration {event.iteration} opens after {closed} closed, "
+                    f"{open_iteration} open"
+                )
+            open_iteration = event.iteration
+        elif kind != "run_closed":
+            if event.iteration != open_iteration:
+                raise LedgerIntegrityError(
+                    f"{where}: {kind} of iteration {event.iteration} outside iteration {open_iteration}"
+                )
+            beam = (event.iteration, str(payload.get("beam", "")))
+            if kind in ("selection", "no_match"):
+                selected[beam] = frozenset(payload.get("candidates", ()))
+            elif kind == "evaluation":
+                if payload["candidate_id"] not in selected.get(beam, frozenset()):
+                    raise LedgerIntegrityError(
+                        f"{where}: evaluation of {payload['candidate_id']} has no selection naming it"
+                    )
+            else:
+                closed, open_iteration = event.iteration, None
 
 
 @functools.cache
@@ -235,17 +295,12 @@ def _check(record: object, part: str, where: str) -> None:
 
 
 def _line_bytes(record: Mapping[str, Any], part: str, where: str) -> bytes:
-    """Validate ``record`` and return its canonical line; nothing is written by the caller first."""
+    """Validate ``record`` and return its canonical line."""
     _check(record, part, where)
     try:
         return canonical_bytes(record)
     except StrictJsonError as exc:
         raise LedgerFormatError(f"{where}: {exc}") from exc
-
-
-# --------------------------------------------------------------------------
-# Writing
-# --------------------------------------------------------------------------
 
 
 def _write(path: Path, mode: str, data: bytes) -> None:
@@ -265,7 +320,7 @@ def create(path: Path, header: Mapping[str, Any]) -> None:
 
 
 def _refuse_torn_tail(path: Path) -> None:
-    """Refuse to append to a file whose last byte is not LF (Pitfall 2), reading one byte."""
+    """Refuse to append to a file whose last byte is not LF (Pitfall 2)."""
     try:
         with path.open("rb") as fh:
             fh.seek(0, os.SEEK_END)
@@ -280,19 +335,10 @@ def _refuse_torn_tail(path: Path) -> None:
 
 
 def append(path: Path, event: Mapping[str, Any]) -> None:
-    """Append one event as one complete LF-terminated line, then fsync.
-
-    The record is validated first, and the ledger must exist and end in LF: a record that
-    fails the schema raises ``LedgerFormatError`` before the file is opened.
-    """
+    """Append one validated event as one LF-terminated line, then fsync (a torn tail refuses)."""
     data = _line_bytes(event, "event", "event")
     _refuse_torn_tail(path)
     _write(path, "ab", data)
-
-
-# --------------------------------------------------------------------------
-# Reading
-# --------------------------------------------------------------------------
 
 
 def _refuse_missing_lf(raw: bytes, where: str) -> None:
@@ -330,6 +376,8 @@ def parse_bytes(raw: bytes, *, source: str = "ledger") -> Ledger:
     for index, line in enumerate(lines[1:], start=1):
         where = f"{source}:{index + 1}"
         record = _parse_line(line, where)
+        if isinstance(record, dict) and "provenance" in record and "event" not in record:
+            raise LedgerFormatError(f"{where}: a second header")
         _check(record, "event", where)
         event = Event.from_json(record)
         if event.run_id != header.run_id:
@@ -337,6 +385,7 @@ def parse_bytes(raw: bytes, *, source: str = "ledger") -> Ledger:
         if event.seq != index:
             raise LedgerIntegrityError(f"{where}: seq {event.seq} is not its line index {index}")
         events.append(event)
+    _check_events(events, source)
     return Ledger(header=header, events=tuple(events))
 
 

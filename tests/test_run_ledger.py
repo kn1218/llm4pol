@@ -277,7 +277,8 @@ def test_ledger_schema_closes_the_envelope_and_the_payload_rules(tmp_path: Path)
         assert path.read_bytes() == before
 
     budget = {"reason": "budget_exhausted", "requested": 1, "remaining": 0, "limit": 2}
-    ledger.append(path, valid_event("run_closed", 1, payload=budget))
+    ledger.append(path, valid_event("run_opened", 1))  # the first event of a ledger (plan 04-05)
+    ledger.append(path, valid_event("run_closed", 2, payload=budget))
     assert ledger.read(path).closed
 
 
