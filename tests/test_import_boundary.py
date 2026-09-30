@@ -243,3 +243,29 @@ def test_evaluate_package_init_imports_no_backend_and_no_radonpy_stub_exists() -
     assert not (PACKAGE / "evaluate" / "backends" / "radonpy.py").exists()
     for name in ("loop", "llm"):
         assert not (PACKAGE / name).exists(), name
+
+
+# --------------------------------------------------------------------------
+# Test 6: the run contract breaks when llm4pol.run imports loop or llm (D-06, F-74)
+# --------------------------------------------------------------------------
+
+
+def test_run_contract_breaks_when_run_imports_loop_or_llm(tmp_path: Path) -> None:
+    """A contract KEPT because nothing violates it is not evidence; break it on a scratch copy."""
+    run_contract = _contract(_importlinter(), RUN_PREFIX)
+
+    for forbidden, probe_module in (("loop", "probe_loop"), ("llm", "probe_llm")):
+        scratch = tmp_path / forbidden
+        copy = _scratch_copy(scratch)
+        _write(copy / forbidden / "__init__.py", "")
+        _write(copy / "run" / f"{probe_module}.py", f"import llm4pol.{forbidden}\n")
+        probe = _probe_toml(scratch, run_contract)
+        code, output = _run_linter(
+            ["--config", str(probe)], cwd=scratch, pythonpath=str(scratch / "src")
+        )
+        assert code == 1, output
+        assert "BROKEN" in output, output
+        assert f"llm4pol.run.{probe_module} -> llm4pol.{forbidden}" in output, output
+
+    for name in ("loop", "llm"):
+        assert not (PACKAGE / name).exists(), name

@@ -3,12 +3,15 @@
 These promote rules that would otherwise be prose in ``docs/governance/`` into
 checks that fail the gate: the charter and its subordinate documents exist, the
 ADR log is well formed and contiguous, every committed configuration file is
-paired with a schema, and run outputs stay out of version control.
+paired with a schema, the four run summaries of ADR-0007 are trackable while the
+ledger stays out of version control, and a tracked run is a PolyOmics run.
 """
 
 from __future__ import annotations
 
+import json
 import re
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -88,11 +91,76 @@ def test_every_config_file_has_a_schema() -> None:
     assert not unpaired, f"config files with no *.schema.json sibling: {unpaired}"
 
 
-def test_experiments_directory_is_ignored_except_readme() -> None:
-    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
-    assert "experiments/*" in gitignore, "run outputs must be git-ignored (ADR-0001)"
-    assert "!experiments/README.md" in gitignore, "experiments/README.md must stay tracked"
+RUN_DIR = "experiments/20260101T000000Z-00000000"
+RUN_ID_DIR = re.compile(r"\d{8}T\d{6}Z-[0-9a-f]{8}")
+TRACKED_RUN_FILES = ("meta.json", "usage.json", "results.csv", "run_summary.json")
+
+
+def _is_ignored(relative_path: str) -> bool:
+    """Ask git whether a path is ignored: exit 0 is ignored, exit 1 is trackable (RESEARCH F-66).
+
+    ``--no-index`` judges the pattern alone, so a path that is not on disk (or
+    already tracked) is answered the same way. Any other exit code is an error.
+    """
+    result = subprocess.run(
+        ["git", "check-ignore", "--quiet", "--no-index", relative_path],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode in (0, 1), (relative_path, result.returncode, result.stderr)
+    return result.returncode == 0
+
+
+def test_run_summaries_are_trackable_and_the_ledger_is_ignored() -> None:
+    """ADR-0007: four names inside a run directory are tracked, everything else is not.
+
+    The test asks git instead of reading ``.gitignore`` as text: a re-include
+    placed after ``experiments/*`` does nothing because the run directory itself
+    is excluded (RESEARCH F-64), and a text check stays green over it (F-67).
+    """
     assert (ROOT / "experiments" / "README.md").is_file()
+    assert not _is_ignored("experiments/README.md")
+    for name in TRACKED_RUN_FILES:
+        assert not _is_ignored(f"{RUN_DIR}/{name}"), f"{name} must be trackable (ADR-0007)"
+    for name in ("ledger.jsonl", "cache.jsonl", "nested/meta.json"):
+        assert _is_ignored(f"{RUN_DIR}/{name}"), f"{name} must stay untracked (ADR-0007)"
+    assert _is_ignored("experiments/stray.txt")
+
+
+def _tracked_experiments_files() -> list[str]:
+    result = subprocess.run(
+        ["git", "ls-files", "experiments"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return [line for line in result.stdout.splitlines() if line]
+
+
+def test_tracked_run_summaries_are_polyomics_runs() -> None:
+    """ADR-0007 second paragraph, ADR-0001: a run on PoLyInfo-derived data is never tracked.
+
+    Every tracked path under ``experiments/`` is the README or one of the four
+    summary names directly inside a run-id directory, and every tracked
+    ``meta.json`` names a ``polyomics:`` snapshot. Holds with zero tracked runs.
+    """
+    offenders: list[str] = []
+    for tracked in _tracked_experiments_files():
+        parts = tracked.split("/")
+        if tracked == "experiments/README.md":
+            continue
+        if len(parts) == 3 and RUN_ID_DIR.fullmatch(parts[1]) and parts[2] in TRACKED_RUN_FILES:
+            if parts[2] == "meta.json":
+                meta = json.loads((ROOT / tracked).read_text(encoding="utf-8"))
+                snapshot = meta.get("snapshot")
+                if not (isinstance(snapshot, str) and snapshot.startswith("polyomics:")):
+                    offenders.append(f"{tracked}: snapshot {snapshot!r} is not a polyomics: run")
+            continue
+        offenders.append(f"{tracked}: not a tracked file of ADR-0007")
+    assert not offenders, offenders
 
 
 def test_data_directories_are_ignored() -> None:
