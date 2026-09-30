@@ -35,7 +35,7 @@ from jsonschema.exceptions import best_match
 
 from llm4pol.run import ids
 from llm4pol.run.atomic import RecordWriteError, fsync_dir
-from llm4pol.run.config import SCHEMA_DIR, ProblemSpecError
+from llm4pol.run.config import SCHEMA_DIR, ProblemSpec, ProblemSpecError
 from llm4pol.run.jsonio import StrictJsonError, canonical_bytes, loads_strict
 from llm4pol.run.records import (
     EVENT_KINDS,
@@ -81,17 +81,23 @@ _LF = b"\n"
 _TAIL_CHUNK = 1 << 16
 
 
-def _check_populations(payload: Mapping[str, Any], where: str) -> None:
+def _check_populations(payload: Mapping[str, Any], where: str, problem: ProblemSpec) -> None:
     names = [population["name"] for population in payload["populations"]]
     if payload["primary"] not in names or len(set(names)) != len(names):
         raise LedgerFormatError(f"{where}: primary {payload['primary']!r} is not one of {names}")
+    expected = sorted(constraint.property for constraint in problem.constraints)
     for population in payload["populations"]:
+        if sorted(population["constraints"]) != expected:
+            raise LedgerFormatError(
+                f"{where}: constraint arrays {sorted(population['constraints'])} of "
+                f"{population['name']!r} are not the problem's {expected}"
+            )
         arrays = [population["objective"], *population["constraints"].values()]
         if len({len(array) for array in arrays}) != 1:
             raise LedgerFormatError(f"{where}: arrays of {population['name']!r} differ in length")
 
 
-def _check_events(events: Sequence[Event], source: str) -> None:
+def _check_events(events: Sequence[Event], source: str, problem: ProblemSpec) -> None:
     """One pass: the first event, no repeated key, nothing after run_closed, the lifecycle order."""
     seen: set[EventKey] = set()
     selected: dict[tuple[int, str], frozenset[str]] = {}
@@ -108,7 +114,7 @@ def _check_events(events: Sequence[Event], source: str) -> None:
             raise LedgerIntegrityError(f"{where}: the first event is {kind}, not run_opened")
         seen.add(key)
         if kind == "run_opened":
-            _check_populations(payload, where)
+            _check_populations(payload, where, problem)
         elif kind == "iteration_opened":
             if open_iteration is not None or event.iteration != closed + 1:
                 raise LedgerIntegrityError(
@@ -305,7 +311,7 @@ def parse_bytes(raw: bytes, *, source: str = "ledger") -> Ledger:
         if event.seq != index:
             raise LedgerIntegrityError(f"{where}: seq {event.seq} is not its line index {index}")
         events.append(event)
-    _check_events(events, source)
+    _check_events(events, source, header.problem)
     return Ledger(header=header, events=tuple(events))
 
 

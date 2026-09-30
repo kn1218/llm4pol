@@ -127,6 +127,10 @@ def _holds(problem: ProblemSpec, values: Mapping[str, float | None]) -> bool:
 def _reference(problem: ProblemSpec, population: Mapping[str, Any]) -> _Reference:
     objective: Sequence[float | None] = population["objective"]
     constraints: Mapping[str, Sequence[float | None]] = population["constraints"]
+    if missing := [c.property for c in problem.constraints if c.property not in constraints]:
+        raise ReduceError(
+            f"population {population['name']!r} has no constraint array for {missing}"
+        )
     values: list[float] = []
     feasible: list[float] = []
     for index, value in enumerate(objective):
@@ -275,8 +279,7 @@ def render_csv(reduced: Reduced) -> bytes:
 def _costs_agree(recorded: Mapping[str, Any], results: Sequence[EvalResult]) -> bool:
     """The event cost is the sum of its result costs: ``evals`` exactly, ``cpu_hours`` to 1e-12.
 
-    The evaluator adds the hours as a running float sum and ``fsum`` is exact, so no bit for bit.
-    """
+    The evaluator adds the hours as a running float sum and ``fsum`` is exact: no bit for bit."""
     same_evals = int(recorded["evals"]) == sum(r.cost.evals for r in results)
     same_hours = math.isclose(
         float(recorded["cpu_hours"]),
@@ -378,8 +381,7 @@ def render_outputs(ledger_bytes: bytes) -> Outputs:
 def check_outputs(directory: Path, outputs: Outputs) -> None:
     """``LedgerIntegrityError`` when a file of ``directory`` holds other bytes than ``outputs``."""
     for name, data in outputs.files().items():
-        present = directory / name
-        if present.exists() and present.read_bytes() != data:
+        if (directory / name).exists() and (directory / name).read_bytes() != data:
             raise LedgerIntegrityError(f"{name} differs from what the ledger reduces to")
 
 
@@ -388,13 +390,10 @@ def write_outputs(run_dir: Path, outputs: Outputs | None = None) -> dict[str, st
 
     All three are rendered, and each mapping is checked against its schema, before a file is
     opened. A present file must hold the same bytes (``check_outputs``, for all three, before any
-    is written); nothing is ever overwritten. Returns the sha256 by file name.
-    """
+    is written); nothing is ever overwritten. Returns the sha256 by file name."""
     outputs = outputs or render_outputs((run_dir / LEDGER_NAME).read_bytes())
     check_outputs(run_dir, outputs)
-    files = outputs.files()
-    for name, data in files.items():
-        target = run_dir / name
-        if not target.exists():
-            atomic.write_new(target, data)
-    return {name: hashlib.sha256(data).hexdigest() for name, data in files.items()}
+    for name, data in outputs.files().items():
+        if not (run_dir / name).exists():
+            atomic.write_new(run_dir / name, data)
+    return {name: hashlib.sha256(data).hexdigest() for name, data in outputs.files().items()}
