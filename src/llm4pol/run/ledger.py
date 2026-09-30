@@ -11,8 +11,10 @@ previous bytes are a strict prefix of the file (A-6) and the file holds no CR.
 
 Reading works on bytes (F-36): the file must end in LF (``TornTail`` names the offset of the
 last LF and the bytes after it), every line is parsed strictly (no repeated key, no non-finite
-constant, F-39), line 1 must be the only header, every later line an event whose ``seq`` equals
-its line index and whose ``run_id`` equals the header's. One pass over the events then checks
+constant, F-39) and must equal the canonical bytes of what it parses to (no CR, no space, no
+reordered key, no number written another way, no integer field written ``2.0``; WR-02), line 1
+must be the only header, every later line an event whose ``seq`` equals its line index and whose
+``run_id`` equals the header's. One pass over the events then checks
 that no event key occurs twice, that the lifecycle is in order and that the populations of
 ``run_opened`` are parallel arrays (plan 04-05). Nothing here repairs or shortens a file.
 
@@ -129,11 +131,22 @@ def _check_events(events: Sequence[Event], source: str) -> None:
                 closed, open_iteration = event.iteration, None
 
 
+def _is_integer(_checker: Any, instance: object) -> bool:
+    """JSON Schema counts ``2.0`` as an integer; a canonical ledger writes ``2`` (WR-02)."""
+    return isinstance(instance, int) and not isinstance(instance, bool)
+
+
+_StrictValidator = jsonschema.validators.extend(
+    jsonschema.Draft202012Validator,
+    type_checker=jsonschema.Draft202012Validator.TYPE_CHECKER.redefine("integer", _is_integer),
+)
+
+
 @functools.cache
 def _validator(part: str) -> Any:
     """The Draft 2020-12 validator of ``#/$defs/<part>`` of ``ledger-event.json`` (built once)."""
     schema = loads_strict(LEDGER_SCHEMA_PATH.read_text(encoding="utf-8"))
-    return jsonschema.Draft202012Validator(
+    return _StrictValidator(
         {
             "$schema": schema["$schema"],
             "$defs": schema["$defs"],
@@ -251,6 +264,16 @@ def _parse_line(line: bytes, where: str) -> Any:
         raise LedgerFormatError(f"{where}: {exc}") from exc
 
 
+def _require_canonical(record: Any, line: bytes, where: str) -> None:
+    """The line is exactly the canonical bytes of what it parses to: no CR, no space, no reorder."""
+    try:
+        canonical = canonical_bytes(record)
+    except StrictJsonError as exc:
+        raise LedgerFormatError(f"{where}: {exc}") from exc
+    if canonical != line + _LF:
+        raise LedgerFormatError(f"{where}: the line is not in canonical form")
+
+
 def parse_bytes(raw: bytes, *, source: str = "ledger") -> Ledger:
     """Parse the bytes of a ledger with every check ``read`` makes."""
     if not raw:
@@ -259,6 +282,7 @@ def parse_bytes(raw: bytes, *, source: str = "ledger") -> Ledger:
     lines = raw.split(_LF)[:-1]
     header_line = _parse_line(lines[0], f"{source}:1")
     _check(header_line, "header", f"{source}:1")
+    _require_canonical(header_line, lines[0], f"{source}:1")
     try:
         header = Header.from_json(header_line)
         ids.require_run_id(header.run_id)
@@ -271,6 +295,7 @@ def parse_bytes(raw: bytes, *, source: str = "ledger") -> Ledger:
         if isinstance(record, dict) and "provenance" in record and "event" not in record:
             raise LedgerFormatError(f"{where}: a second header")
         _check(record, "event", where)
+        _require_canonical(record, line, where)
         event = Event.from_json(record)
         if event.run_id != header.run_id:
             raise LedgerIntegrityError(f"{where}: run_id {event.run_id} is not the header's")
