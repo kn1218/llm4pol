@@ -235,12 +235,12 @@ def _replay(args: argparse.Namespace) -> int:
     if args.out is not None and args.out.resolve() == run_dir.resolve():
         raise _Refused("--out must not be the run directory")
     outputs = reduce.render_outputs((run_dir / LEDGER_NAME).read_bytes())
-    if outputs.closed:  # raises LedgerIntegrityError, before anything is written, on a difference
-        reduce.write_outputs(run_dir, outputs)
-    if args.out is not None:
-        args.out.mkdir(parents=True, exist_ok=True)
-        for name, data in outputs.files().items():
-            (args.out / name).write_bytes(data)
+    targets = [d for d in (run_dir if outputs.closed else None, args.out) if d is not None]
+    for target in targets:  # LedgerIntegrityError, before anything is written, on a difference
+        reduce.check_outputs(target, outputs)
+    for target in targets:  # an equal file stays, an absent one is written atomically
+        target.mkdir(parents=True, exist_ok=True)
+        reduce.write_outputs(target, outputs)
     print(f"ledger_sha256: {outputs.ledger_sha256}")
     print(f"results_sha256: {outputs.results_sha256}")
     print(f"result_sha256: {reduce.result_sha256(outputs.results, outputs.usage, outputs.summary)}")

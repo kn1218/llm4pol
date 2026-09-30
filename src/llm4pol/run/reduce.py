@@ -375,19 +375,24 @@ def render_outputs(ledger_bytes: bytes) -> Outputs:
     )
 
 
+def check_outputs(directory: Path, outputs: Outputs) -> None:
+    """``LedgerIntegrityError`` when a file of ``directory`` holds other bytes than ``outputs``."""
+    for name, data in outputs.files().items():
+        present = directory / name
+        if present.exists() and present.read_bytes() != data:
+            raise LedgerIntegrityError(f"{name} differs from what the ledger reduces to")
+
+
 def write_outputs(run_dir: Path, outputs: Outputs | None = None) -> dict[str, str]:
     """Reduce the ledger of ``run_dir`` (or take ``outputs``) and write the files that are absent.
 
     All three are rendered, and each mapping is checked against its schema, before a file is
-    opened. A file that is present must hold the same bytes, else ``LedgerIntegrityError``, and
-    that is checked for all three before any is written; nothing is ever overwritten. Returns the
-    sha256 by file name.
+    opened. A present file must hold the same bytes (``check_outputs``, for all three, before any
+    is written); nothing is ever overwritten. Returns the sha256 by file name.
     """
-    files = (outputs or render_outputs((run_dir / LEDGER_NAME).read_bytes())).files()
-    for name, data in files.items():
-        present = run_dir / name
-        if present.exists() and present.read_bytes() != data:
-            raise LedgerIntegrityError(f"{name} differs from what the ledger reduces to")
+    outputs = outputs or render_outputs((run_dir / LEDGER_NAME).read_bytes())
+    check_outputs(run_dir, outputs)
+    files = outputs.files()
     for name, data in files.items():
         target = run_dir / name
         if not target.exists():
