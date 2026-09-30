@@ -32,6 +32,9 @@ Exit codes:
         selector than the running ones, a recorded selection the selector does not give, or a
         ``results.csv`` or ``usage.json`` that is not what the ledger yields (stdout ``ERROR:
         ledger integrity check failed``)
+5       the operating system failed while the run record was being written (a full disk, an I/O
+        error); an append may have left a torn final line, and the detail names the byte offset
+        it follows (stdout ``ERROR: I/O failure while writing the run record``)
 6       another process holds the ledger of this run (``run`` and ``resume`` lock it for the whole
         call); nothing was read past the header check and nothing was appended (stdout ``ERROR: run
         is in use by another process``)
@@ -52,6 +55,7 @@ from typing import TYPE_CHECKING
 from llm4pol.data import snapshot
 from llm4pol.data.registry import RegistryError
 from llm4pol.run import ids, reduce
+from llm4pol.run.atomic import RecordWriteError
 from llm4pol.run.config import (
     CodeIdentityError,
     MetaError,
@@ -72,11 +76,13 @@ EXIT_OK = 0
 EXIT_INPUT = 2
 EXIT_BUDGET = 3
 EXIT_INTEGRITY = 4
+EXIT_IO = 5
 EXIT_LOCKED = 6
 
 INPUT_LINE = "ERROR: input refused"
 BUDGET_LINE = "BUDGET: evaluation budget exhausted"
 INTEGRITY_LINE = "ERROR: ledger integrity check failed"
+IO_LINE = "ERROR: I/O failure while writing the run record"
 LOCKED_LINE = "ERROR: run is in use by another process"
 
 DEFAULT_EXPERIMENTS = snapshot.DEFAULT_ROOT / "experiments"
@@ -266,6 +272,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _fail(EXIT_INTEGRITY, INTEGRITY_LINE, exc)
     except RunLocked as exc:
         return _fail(EXIT_LOCKED, LOCKED_LINE, exc)
+    except RecordWriteError as exc:  # before `_INPUT_ERRORS`, which holds OSError
+        return _fail(EXIT_IO, IO_LINE, exc)
     except _INPUT_ERRORS as exc:
         return _fail(EXIT_INPUT, INPUT_LINE, exc)
 

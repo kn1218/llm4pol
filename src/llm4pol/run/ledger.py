@@ -34,7 +34,7 @@ from typing import Any
 from jsonschema.exceptions import best_match
 
 from llm4pol.run import ids
-from llm4pol.run.atomic import fsync_dir
+from llm4pol.run.atomic import RecordWriteError, fsync_dir
 from llm4pol.run.config import SCHEMA_DIR, ProblemSpecError
 from llm4pol.run.jsonio import StrictJsonError, canonical_bytes, loads_strict
 from llm4pol.run.records import (
@@ -176,6 +176,10 @@ def create(path: Path, header: Mapping[str, Any]) -> None:
         _write(path, "xb", data)
     except FileExistsError as exc:
         raise LedgerError("ledger exists; use replay") from exc
+    except OSError as exc:
+        raise RecordWriteError(
+            f"creating {path.name} failed: {exc}; the header may be partial"
+        ) from exc
     fsync_dir(path.parent)  # the entry is durable too (WR-06)
 
 
@@ -233,8 +237,15 @@ def append(path: Path, event: Mapping[str, Any]) -> None:
     after ``run_closed`` and one of another run (CR-01, belt and braces beside the run lock).
     """
     data = _line_bytes(event, "event", "event")
-    _require_next(path, event)
-    _write(path, "ab", data)
+    size = _require_next(path, event)
+    try:
+        _write(path, "ab", data)
+    except OSError as exc:
+        raise RecordWriteError(
+            f"appending seq {event['seq']} to {path.name} failed: {exc}; the ledger may end in a "
+            f"torn line after byte offset {size - 1}, which resume refuses",
+            last_lf_offset=size - 1,
+        ) from exc
 
 
 def _refuse_missing_lf(raw: bytes, where: str) -> None:
