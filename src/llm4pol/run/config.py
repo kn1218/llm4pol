@@ -14,6 +14,9 @@ directory into ``RunExists`` instead of a second run written over the first.
 them against ``protocol/schemas/run-meta.json`` and ``write_meta`` writes the pretty form once,
 after validation. A provider key is recorded as the boolean ``provider_key_configured`` decided by
 membership of its name in the environment; no value is read (charter section 12, F-50).
+``write_meta`` renders ``redact(meta)`` before it validates: the closed schema is the first defence
+(no key of ``meta.json`` can hold an environment value), the key-name rule the second, for the one
+open mapping the schema admits (``prompt_versions``) and for what Phase 6 adds (D-01, F-48).
 """
 
 from __future__ import annotations
@@ -21,6 +24,7 @@ from __future__ import annotations
 import functools
 import math
 import os
+import re
 import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -44,6 +48,31 @@ META_SCHEMA_VERSION = 1
 PROVIDER_KEY_NAMES: tuple[str, ...] = ("OPENAI_API_KEY", "GEMINI_API_KEY", "CLAUDE_API_KEY")
 
 RUN_EXISTS_MESSAGE = "run exists; use replay"
+
+# The marker of CONTEXT D-01 that stands in for the value of a secret-shaped key name.
+REDACTED = "***REDACTED***"
+
+# The paths that define behaviour: `dirty` is read over these only (RESEARCH Pitfall 9, F-52).
+BEHAVIOUR_PATHS: tuple[str, ...] = (
+    "src",
+    "protocol",
+    "config",
+    "pyproject.toml",
+    "env/pixi.toml",
+    "env/pixi.lock",
+)
+
+# The suffix rule of F-48: a singular credential word at the end of the name, after the start or an
+# underscore, case-insensitive. `tokens`, `max_tokens` and `token_budget` are numbers, not secrets.
+_NAME_RULE = re.compile(
+    r"(?:^|_)(?:api_?key|secret|token|password|passwd|credential)$", re.IGNORECASE
+)
+
+
+PARETO_MESSAGE = (
+    "/form: 'pareto' is reserved for the D-16 gate (objective form, fixed at the Phase 7 "
+    "pre-registration) and is not accepted by problem spec schema version 1"
+)
 
 
 class ProblemSpecError(ValueError):
@@ -145,8 +174,11 @@ def _refuse_what_a_schema_cannot_say(payload: Mapping[str, Any]) -> None:
 def parse_problem_spec(payload: object) -> ProblemSpec:
     """Validate ``payload`` against the schema, then build the typed spec.
 
-    Raises ``ProblemSpecError`` carrying the JSON pointer of the best-matching violation.
+    Raises ``ProblemSpecError`` carrying the JSON pointer of the best-matching violation. A payload
+    whose ``form`` is ``pareto`` is refused first, by name: the form is reserved for the D-16 gate.
     """
+    if isinstance(payload, Mapping) and payload.get("form") == "pareto":
+        raise ProblemSpecError(PARETO_MESSAGE)
     error = best_match(problem_validator().iter_errors(payload))
     if error is not None:
         pointer = "/" + "/".join(str(part) for part in error.absolute_path)
@@ -238,12 +270,29 @@ def _git(repo: Path, *args: str) -> str:
 def code_identity(repo: Path = DEFAULT_ROOT) -> CodeIdentity:
     """``git rev-parse HEAD`` and ``git status --porcelain`` of the code checkout ``repo``.
 
-    ``dirty`` is any porcelain output (plan 04-06 narrows it to the paths that define behaviour,
-    RESEARCH Pitfall 9). ``repo`` is the code checkout, never the data root.
+    ``dirty`` is any porcelain output over ``BEHAVIOUR_PATHS`` only, so an untracked file inside
+    them counts and a planning file or a tracked run summary does not (RESEARCH Pitfall 9, F-52).
+    ``repo`` is the code checkout, never the data root given to ``--root``.
     """
     sha = _git(repo, "rev-parse", "HEAD").strip()
-    dirty = bool(_git(repo, "status", "--porcelain").strip())
+    dirty = bool(_git(repo, "status", "--porcelain", "--", *BEHAVIOUR_PATHS).strip())
     return CodeIdentity(sha=sha, dirty=dirty)
+
+
+def redact(value: Any) -> Any:
+    """A copy of ``value`` in which every secret-shaped key name holds ``REDACTED`` (F-48).
+
+    Mappings and lists are followed to any depth (a tuple comes back as a list); the argument is
+    never changed. The rule reads names only, so a number under ``tokens`` survives (Pitfall 10).
+    """
+    if isinstance(value, Mapping):
+        return {
+            key: REDACTED if _NAME_RULE.search(str(key)) else redact(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list | tuple):
+        return [redact(item) for item in value]
+    return value
 
 
 def provider_key_configured(environ: Mapping[str, str]) -> bool:
@@ -300,14 +349,15 @@ def validate_meta(meta: Mapping[str, Any]) -> None:
 
 
 def write_meta(run_dir: Path, meta: Mapping[str, Any]) -> Path:
-    """Validate ``meta``, then write ``run_dir/meta.json`` once with an exclusive binary open.
+    """Redact ``meta``, validate the result, then write ``run_dir/meta.json`` once, exclusively.
 
     ``MetaError`` before any file is opened; ``FileExistsError`` when the file is already there,
-    its bytes untouched.
+    its bytes untouched. The argument is not changed.
     """
-    validate_meta(meta)
+    safe = redact(meta)
+    validate_meta(safe)
     path = run_dir / META_NAME
-    data = pretty_bytes(meta)
+    data = pretty_bytes(safe)
     with path.open("xb") as fh:
         fh.write(data)
         fh.flush()
