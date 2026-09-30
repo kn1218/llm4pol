@@ -133,7 +133,7 @@ def test_repository_inventory_validates(capsys: pytest.CaptureFixture[str]) -> N
     """The committed inventory validates: the registry, both evaluator examples (EVAL-01), and
     the run record: problem spec, selection plan, meta, eight ledger lines (04-04) and usage (04-07)."""
     assert validate_inventory(REPO_ROOT) == []
-    assert "llm4polcheck inventory: 8 entries, 15 instances processed" in capsys.readouterr().out
+    assert "llm4polcheck inventory: 9 entries, 16 instances processed" in capsys.readouterr().out
 
 
 def test_check_steps_include_schema_inventory_after_import_linter() -> None:

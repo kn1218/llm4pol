@@ -178,6 +178,7 @@ def test_tracer_run_then_replay_through_the_module_entry_point(
         "ledger.jsonl",
         "meta.json",
         "results.csv",
+        "run_summary.json",
         "usage.json",
     ]
 
@@ -473,7 +474,7 @@ def test_reduce_is_a_pure_function_of_the_ledger(
     assert first.decode("utf-8").splitlines()[0].split(",") == list(reduce.COLUMNS)
     before = (run_dir / "results.csv").read_bytes()
     sums = reduce.write_outputs(run_dir)
-    assert set(sums) == {"results.csv", "usage.json"}
+    assert set(sums) == {"results.csv", "run_summary.json", "usage.json"}
     assert sums["results.csv"] == TRACER_RESULTS_SHA256
     assert (run_dir / "results.csv").read_bytes() == before  # compared, never rewritten
     (run_dir / "results.csv").write_bytes(before + b"9,x\n")
@@ -551,6 +552,7 @@ def test_the_static_prohibitions_of_the_plan_hold() -> None:
         "reduce.py",
         "resume.py",
         "selector.py",
+        "summary.py",
     ]
     assert all(
         len(p.read_text(encoding="utf-8").splitlines()) <= 400 for p in RUN_PACKAGE.glob("*.py")

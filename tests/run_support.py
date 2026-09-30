@@ -481,3 +481,61 @@ def hand_ledger(
     for seq, (kind, iteration, payload) in enumerate(events, start=1):
         lines.append(canonical_line(valid_event(kind, seq, iteration=iteration, payload=payload)))
     return b"".join(lines)
+
+
+# --------------------------------------------------------------------------
+# Plan 04-08: ``run_summary.json`` of the reference campaign, derived by hand from the plan objective
+# (six trend entries in the order of first appearance in the ledger, `full`, `random`, `chem`, each
+# for `check_tc` then `readme_triple`; the empty `chem` beam has a null percentile). The ledger hash
+# is that of the committed fixture `tests/fixtures/run/reference-ledger.jsonl`, 10,308 bytes, which
+# a fresh reference run under the fixed identity reproduces. Nothing here imports ``llm4pol.run``.
+# --------------------------------------------------------------------------
+
+REFERENCE_LEDGER_SHA256 = "bc2370c0eff10b2904a325c597d070d1ee63384ba92fc786d29da7ec3839c457"
+REFERENCE_LEDGER_SIZE = 10308
+REFERENCE_SUMMARY_SHA256 = "8190025ee895b71c9961d25a817015437f91285dbbff6b51413d70b20b9d20a9"
+REFERENCE_SUMMARY_SIZE = 2279
+
+
+def _points(items: list[tuple[int, float | int | None]]) -> list[dict[str, Any]]:
+    return [{"iteration": iteration, "value": value} for iteration, value in items]
+
+
+def reference_summary() -> dict[str, Any]:
+    """The mapping of the reference campaign's ``run_summary.json``, from the hand table."""
+    by_beam: list[tuple[str, list[tuple[int, float | None]], list[tuple[int, int]]]] = [
+        ("full", [(1, 75.0), (2, 75.0)], [(1, 2), (2, 2)]),
+        ("random", [(1, 75.0)], [(1, 3)]),
+        ("chem", [(2, None)], [(2, 0)]),
+    ]
+    return {
+        "schema_version": 1,
+        "run_id": FIXED_RUN_ID,
+        "status": "completed",
+        "completed_iterations": 2,
+        "primary_population": "check_tc",
+        "trends": [
+            {
+                "beam": beam,
+                "population": population,
+                "percentile_trend": _points(percentile),
+                "count_trend": _points(count),
+            }
+            for beam, percentile, count in by_beam
+            for population in ("check_tc", "readme_triple")
+        ],
+        "ledger_sha256": REFERENCE_LEDGER_SHA256,
+        "results_sha256": REFERENCE_RESULTS_SHA256,
+    }
+
+
+def reference_summary_json() -> bytes:
+    """The bytes of that mapping: indent 2, sorted keys, colon and space, one LF."""
+    text = json.dumps(
+        reference_summary(),
+        sort_keys=True,
+        indent=2,
+        separators=(",", ": "),
+        ensure_ascii=False,
+    )
+    return (text + "\n").encode("utf-8")

@@ -43,12 +43,14 @@ from run_support import (
     REFERENCE_PLAN,
     REFERENCE_RESULTS_CSV,
     REFERENCE_RESULTS_SHA256,
+    REFERENCE_USAGE_JSON,
     UNKNOWN,
     budget_run,
     charter_problem,
     constant_clock,
     cut_run,
     reference_run,
+    reference_summary_json,
 )
 
 FIXED_CODE = config.CodeIdentity(FIXED_CODE_SHA, False)
@@ -181,6 +183,8 @@ def test_resume_at_every_event_boundary_is_byte_identical(
         reference / ledger.LEDGER_NAME
     ).read_bytes()
     assert (run_dir / reduce.RESULTS_NAME).read_bytes() == REFERENCE_RESULTS_CSV
+    assert (run_dir / reduce.USAGE_NAME).read_bytes() == REFERENCE_USAGE_JSON
+    assert (run_dir / reduce.SUMMARY_NAME).read_bytes() == reference_summary_json()
     resumed = ledger.read(run_dir / ledger.LEDGER_NAME)
     assert len(resumed.events) + 1 == 18
     keys = [ledger.event_key(event) for event in resumed.events]
