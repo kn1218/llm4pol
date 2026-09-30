@@ -3,18 +3,18 @@ gsd_state_version: "1.0"
 milestone: v1.0
 current_phase: 04
 current_phase_name: Run Management
-current_plan: 2
+current_plan: 3
 status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-09-30T07:24:55.028Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-09-30T07:40:58.895Z"
 last_activity: 2026-09-30
 last_activity_desc: Phase 04 execution started
-state_head: 3cb130db708eedd871de23b3dde728012292a92c
+state_head: 38d7fe4753260cfa31145d8de88ed7c518e0706a
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 19
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Charter: docs/MASTER-PLAN.md v1.0 (approved 2026-09-21, ADR-0005) — highest so
 ## Current Position
 
 Phase: 04 (Run Management) — EXECUTING
-Current Plan: 2
+Current Plan: 3
 Total Plans in Phase: 9
 Status: Ready to execute
 Last activity: 2026-09-30 — Phase 04 execution started
@@ -74,6 +74,7 @@ Progress: [████░░░░░░] 38%
 | Phase 03 P03 | 13min | 3 tasks | 6 files |
 | Phase 02 P06 | 30min | 5 tasks | 21 files |
 | Phase 04 P01 | 25 min | 2 tasks | 14 files |
+| Phase 04 P02 | 12 min | 1 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,7 @@ Recent decisions affecting current work:
 - [Phase 2]: 02-06: documented findings that drifted inside their own tolerance were not republished, so the drift budget stays spent-down rather than reset
 - [Phase 2]: 02-06: D-11 promoted to a guarded INVARIANTS.md row in the same commit as the call site (ADR-0006, DATA-10)
 - [Phase 04]: 04-01: run_closed is pinned to iteration 0 for both reasons (RESEARCH A4); TornTail.last_lf_offset is the offset of the last LF byte (-1 when none); ledger.append refuses a missing ledger and a torn tail — Run-scoped events use iteration 0 and iterations count from 1; a torn tail is refused, never repaired (CONTEXT R-6)
+- [Phase 04]: 04-02: the run driver enforces the budget in evals only (limit iterations x candidates_per_beam x beams); dirty is whole-tree until 04-06; the package root does not export the function reduce
 
 ### Pending Todos
 
@@ -128,6 +130,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-30T07:24:47.947Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-09-30T07:40:58.815Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
