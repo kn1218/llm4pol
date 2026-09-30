@@ -36,6 +36,14 @@ have no guard.
   (Phase 3, M2 freeze; charter section 7), with their committed instances
   `examples/eval-request.example.json` and `examples/eval-response.example.json`, the
   latter being the evaluator's own output on the synthetic test table.
+- `schemas/problem-spec.json`, `schemas/ledger-event.json`, `schemas/selection-plan.json`,
+  `schemas/run-meta.json`, `schemas/run-usage.json`, `schemas/run-summary.json` -- the run
+  record (Phase 4, M3 freeze; charter section 7), with their committed instances under
+  `examples/`: `problem-spec.example.json`, `selection-plan.example.json`,
+  `run-meta.example.json`, the eight ledger examples `ledger-header.example.json` and
+  `ledger-event.<kind>.example.json` (one per event kind), `run-usage.example.json` and
+  `run-summary.example.json`. The ledger, meta, usage and summary instances are what the code
+  wrote on the synthetic table under an injected identity.
 - `prompts/` is populated at M5 (Phase 6).
 
 A schema or prompt that produced a reported result is never edited in place: a new version
