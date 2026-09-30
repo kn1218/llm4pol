@@ -13,7 +13,8 @@ import json
 import os
 import subprocess
 import sys
-from collections.abc import Iterator
+import time
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -114,8 +115,88 @@ def test_a_lock_held_by_another_process_refuses_and_dying_releases_it(
         raise AssertionError("the lock is held by another process")
     child.kill()
     child.wait()
-    with lock.held(path):  # the operating system released it: no stale state to clean
-        pass
+    # The operating system releases the lock of a dead holder, on Windows a moment after the
+    # process has gone: a short bounded retry keeps this from being flaky while it still asserts
+    # that the lock IS eventually acquirable (RR-2).
+    _acquirable_within(path, seconds=2.0)
+
+
+def _acquirable_within(path: Path, *, seconds: float) -> None:
+    deadline = time.monotonic() + seconds
+    while True:
+        try:
+            with lock.held(path):
+                return
+        except lock.RunLocked:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.05)
+
+
+def _spy_unlock(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, int]]:
+    """Record each explicit unlock the platform's locking call receives, with its file offset."""
+    calls: list[tuple[str, int]] = []
+    if sys.platform == "win32":
+        import msvcrt
+
+        real_locking: Callable[[int, int, int], None] = msvcrt.locking
+
+        def locking(fd: int, mode: int, nbytes: int) -> None:
+            if mode == msvcrt.LK_UNLCK:
+                calls.append(("unlock", os.lseek(fd, 0, os.SEEK_CUR)))
+            real_locking(fd, mode, nbytes)
+
+        monkeypatch.setattr(msvcrt, "locking", locking)
+    else:
+        import fcntl
+
+        real_flock: Callable[[int, int], None] = fcntl.flock
+
+        def flock(fd: int, operation: int) -> None:
+            if operation == fcntl.LOCK_UN:
+                calls.append(("unlock", 0))
+            real_flock(fd, operation)
+
+        monkeypatch.setattr(fcntl, "flock", flock)
+    return calls
+
+
+def test_the_lock_is_explicitly_released_at_the_lock_offset_before_the_handle_closes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "ledger.jsonl"
+    path.write_bytes(b"{}\n")
+    calls = _spy_unlock(monkeypatch)
+    with lock.held(path):
+        assert calls == []
+    expected = lock._WINDOWS_LOCK_OFFSET if sys.platform == "win32" else 0
+    assert calls == [("unlock", expected)]  # exactly once, at the byte that was locked
+
+
+def test_the_lock_is_released_when_the_block_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "ledger.jsonl"
+    path.write_bytes(b"{}\n")
+    calls = _spy_unlock(monkeypatch)
+    with pytest.raises(RuntimeError, match="boom"), lock.held(path):
+        raise RuntimeError("boom")
+    assert len(calls) == 1
+    _acquirable_within(path, seconds=2.0)
+
+
+def test_a_refused_holder_does_not_unlock_the_lock_it_never_took(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "ledger.jsonl"
+    path.write_bytes(b"{}\n")
+    with lock.held(path):
+        calls = _spy_unlock(monkeypatch)
+        with pytest.raises(lock.RunLocked), lock.held(path):
+            raise AssertionError("the second holder must not get in")
+        assert calls == []  # the refused handle released nothing: the first holder still holds it
+        with pytest.raises(lock.RunLocked), lock.held(path):
+            raise AssertionError("the first holder must still hold the lock")
 
 
 def test_drive_refuses_a_locked_run_and_appends_nothing(
