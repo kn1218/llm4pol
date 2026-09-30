@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 FIXED_NOW = datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC)
@@ -213,3 +214,117 @@ TRACER_RESULTS_CSV = (
     b"1,chem,readme_triple,0,0,,,4,,0,0\n"
 )
 TRACER_RESULTS_SHA256 = "bbd59e21275bb7357f83d679ae67ce339dd30c83a126019e833ccff77941be14"
+
+
+# --------------------------------------------------------------------------
+# The reference and budget campaigns of plan 04-05, derived by hand from the fixture of
+# ``conftest._CORE`` (see the plan objective). Both run under the fixed identity above, so the
+# ledger and ``results.csv`` are byte-identical from one run to the next.
+# --------------------------------------------------------------------------
+
+UNKNOWN = "0123456789abcdef"  # well formed and absent from the candidate table
+
+# Two iterations, two beams each: 17 events after the header, five `evals`, budget limit 12.
+REFERENCE_PLAN: dict[str, Any] = {
+    "schema_version": 1,
+    "iterations": [
+        {
+            "iteration": 1,
+            "beams": [
+                {"beam": "full", "candidates": [PE, PS]},
+                {"beam": "random", "candidates": [POM, PVF, UNKNOWN]},
+            ],
+        },
+        {
+            "iteration": 2,
+            "beams": [
+                {"beam": "full", "candidates": [PE, PP_ISO]},
+                {"beam": "chem", "candidates": []},
+            ],
+        },
+    ],
+}
+REFERENCE_KINDS = [
+    "run_opened",
+    "iteration_opened",
+    "selection",
+    "evaluation",
+    "evaluation",
+    "selection",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "iteration_closed",
+    "iteration_opened",
+    "selection",
+    "evaluation",
+    "evaluation",
+    "no_match",
+    "iteration_closed",
+    "run_closed",
+]
+_RESULTS_HEADER = (
+    b"iteration,beam,population,n_selected,n_ok,median_objective,feasible_frac,"
+    b"n_population,pct_of_population,hits_top10,hits_top1\n"
+)
+REFERENCE_RESULTS_CSV = _RESULTS_HEADER + (
+    b"1,full,check_tc,2,2,0.235,0.0,4,75.0,0,0\n"
+    b"1,full,readme_triple,2,2,0.235,0.0,4,75.0,0,0\n"
+    b"1,random,check_tc,3,1,0.22,0.0,4,75.0,0,0\n"
+    b"1,random,readme_triple,3,1,0.22,0.0,4,75.0,0,0\n"
+    b"2,full,check_tc,2,2,0.2575,0.5,4,75.0,1,1\n"
+    b"2,full,readme_triple,2,2,0.2575,0.5,4,75.0,1,1\n"
+    b"2,chem,check_tc,0,0,,,4,,0,0\n"
+    b"2,chem,readme_triple,0,0,,,4,,0,0\n"
+)
+REFERENCE_RESULTS_SHA256 = "0e31cfc380aaaf9f86a68b5e83986ad34ce57cd3c4704634ea2de840f0512fc6"
+
+# One iteration, one beam of three candidates, budget limit 2: PS is refused.
+BUDGET_PLAN: dict[str, Any] = {
+    "schema_version": 1,
+    "iterations": [{"iteration": 1, "beams": [{"beam": "full", "candidates": [PE, PP_ISO, PS]}]}],
+}
+BUDGET_RESULTS_CSV = _RESULTS_HEADER + (
+    b"1,full,check_tc,3,2,0.2575,0.3333333333333333,4,75.0,1,1\n"
+    b"1,full,readme_triple,3,2,0.2575,0.3333333333333333,4,75.0,1,1\n"
+)
+BUDGET_RESULTS_SHA256 = "23f046d9a90fcfad19ff5963610210885ef4d7e558c8acaaec9bec9dc0c73062"
+
+
+def fixed_run(root: Path, experiments: Path, plan: dict[str, Any], problem: dict[str, Any]) -> Path:
+    """Open and drive one run under the fixed identity; return its run directory."""
+    from llm4pol.run import config, resume, selector  # deferred: ledger tests import this module
+
+    spec = config.parse_problem_spec(problem)
+    chosen = selector.PlanSelector.from_payload(plan, spec)
+    run_dir = resume.open_run(
+        experiments,
+        spec,
+        chosen,
+        root=root,
+        now=FIXED_NOW,
+        token=FIXED_TOKEN,
+        code=config.CodeIdentity(FIXED_CODE_SHA, False),
+    )
+    resume.drive(run_dir, root=root, selector=chosen, clock=constant_clock())
+    return run_dir
+
+
+def reference_run(root: Path, experiments: Path) -> Path:
+    """The uninterrupted reference campaign: 17 events, five ``evals``, 453 bytes of results."""
+    return fixed_run(root, experiments, REFERENCE_PLAN, charter_problem(2, 3, 2))
+
+
+def budget_run(root: Path, experiments: Path) -> Path:
+    """The budget scenario: six events, ended by a recorded refusal of PS."""
+    return fixed_run(root, experiments, BUDGET_PLAN, charter_problem(1, 1, 2))
+
+
+def cut_run(source_dir: Path, target_experiments: Path, k: int) -> Path:
+    """A new run directory holding ``meta.json`` and the header plus the first ``k`` events."""
+    lines = (source_dir / "ledger.jsonl").read_bytes().split(b"\n")[:-1]
+    target = target_experiments / source_dir.name
+    target.mkdir(parents=True)
+    (target / "meta.json").write_bytes((source_dir / "meta.json").read_bytes())
+    (target / "ledger.jsonl").write_bytes(b"".join(line + b"\n" for line in lines[: k + 1]))
+    return target
