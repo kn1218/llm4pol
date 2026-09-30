@@ -182,8 +182,11 @@ def test_read_returns_the_header_and_events_and_requires_the_final_lf(tmp_path: 
         with pytest.raises(ledger.LedgerFormatError):
             ledger.read(path)
 
-    _ledger_with(tmp_path / "gap.jsonl", [valid_event("run_opened", 1)])
-    ledger.append(tmp_path / "gap.jsonl", valid_event("iteration_opened", 3))
+    gapped = _ledger_with(tmp_path / "gap.jsonl", [valid_event("run_opened", 1)])
+    # `append` refuses a gap (CR-01), so the gap is written as raw bytes to test the reader
+    (tmp_path / "gap.jsonl").write_bytes(
+        gapped + jsonio.canonical_bytes(valid_event("iteration_opened", 3))
+    )
     with pytest.raises(ledger.LedgerIntegrityError):
         ledger.read(tmp_path / "gap.jsonl")
 

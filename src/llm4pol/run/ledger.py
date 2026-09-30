@@ -25,7 +25,6 @@ from __future__ import annotations
 import functools
 import os
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -33,193 +32,49 @@ import jsonschema
 from jsonschema.exceptions import best_match
 
 from llm4pol.run import ids
-from llm4pol.run.config import SCHEMA_DIR, ProblemSpec, ProblemSpecError, parse_problem_spec
+from llm4pol.run.config import SCHEMA_DIR, ProblemSpecError
 from llm4pol.run.jsonio import StrictJsonError, canonical_bytes, loads_strict
+from llm4pol.run.records import (
+    EVENT_KINDS,
+    Event,
+    EventKey,
+    Header,
+    Ledger,
+    LedgerError,
+    LedgerFormatError,
+    LedgerIntegrityError,
+    TornTail,
+    event_key,
+    event_record,
+    header_record,
+)
+
+__all__ = [
+    "EVENT_KINDS",
+    "LEDGER_NAME",
+    "LEDGER_SCHEMA_PATH",
+    "Event",
+    "EventKey",
+    "Header",
+    "Ledger",
+    "LedgerError",
+    "LedgerFormatError",
+    "LedgerIntegrityError",
+    "TornTail",
+    "append",
+    "create",
+    "event_key",
+    "event_record",
+    "header_record",
+    "parse_bytes",
+    "read",
+]
 
 LEDGER_NAME = "ledger.jsonl"
 LEDGER_SCHEMA_PATH = SCHEMA_DIR / "ledger-event.json"
 
-EVENT_KINDS: tuple[str, ...] = (
-    "run_opened",
-    "iteration_opened",
-    "selection",
-    "evaluation",
-    "no_match",
-    "iteration_closed",
-    "run_closed",
-)
-
 _LF = b"\n"
-
-
-class LedgerError(RuntimeError):
-    """Any refusal of the ledger; the subclasses name what was wrong."""
-
-
-class TornTail(LedgerError):
-    """The file does not end in LF: a line was cut short or an append was interrupted.
-
-    ``last_lf_offset`` is the byte offset of the last LF (-1 when the file holds none) and
-    ``trailing_bytes`` the number of bytes after it. Nothing is repaired here.
-    """
-
-    def __init__(self, message: str, *, last_lf_offset: int, trailing_bytes: int) -> None:
-        super().__init__(message)
-        self.last_lf_offset = last_lf_offset
-        self.trailing_bytes = trailing_bytes
-
-
-class LedgerFormatError(LedgerError):
-    """A line that is not strict JSON, fails the schema, or sits in the wrong place."""
-
-
-class LedgerIntegrityError(LedgerError):
-    """Lines that are each valid but do not belong together: a ``seq`` gap, a foreign run."""
-
-
-@dataclass(frozen=True, slots=True)
-class Header:
-    """The first line: the problem and the provenance the run was opened with."""
-
-    run_id: str
-    problem: ProblemSpec
-    seed: int
-    snapshot: str
-    registry_version: str
-    selector: str
-    code_git_sha: str
-    schema_version: int = 1
-
-    def to_json(self) -> dict[str, Any]:
-        return {
-            "schema_version": self.schema_version,
-            "run_id": self.run_id,
-            "problem": self.problem.to_json(),
-            "provenance": {
-                "seed": self.seed,
-                "snapshot": self.snapshot,
-                "registry_version": self.registry_version,
-                "selector": self.selector,
-                "code_git_sha": self.code_git_sha,
-            },
-        }
-
-    @classmethod
-    def from_json(cls, record: Mapping[str, Any]) -> Header:
-        """Build from a record the header schema has accepted."""
-        provenance = record["provenance"]
-        return cls(
-            schema_version=int(record["schema_version"]),
-            run_id=str(record["run_id"]),
-            problem=parse_problem_spec(record["problem"]),
-            seed=int(provenance["seed"]),
-            snapshot=str(provenance["snapshot"]),
-            registry_version=str(provenance["registry_version"]),
-            selector=str(provenance["selector"]),
-            code_git_sha=str(provenance["code_git_sha"]),
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class Event:
-    """One event line: the envelope and its payload."""
-
-    seq: int
-    ts: str
-    run_id: str
-    iteration: int
-    event: str
-    payload: Mapping[str, Any]
-
-    def to_json(self) -> dict[str, Any]:
-        return {
-            "seq": self.seq,
-            "ts": self.ts,
-            "run_id": self.run_id,
-            "iteration": self.iteration,
-            "event": self.event,
-            "payload": dict(self.payload),
-        }
-
-    @classmethod
-    def from_json(cls, record: Mapping[str, Any]) -> Event:
-        """Build from a record the event schema has accepted."""
-        return cls(
-            seq=int(record["seq"]),
-            ts=str(record["ts"]),
-            run_id=str(record["run_id"]),
-            iteration=int(record["iteration"]),
-            event=str(record["event"]),
-            payload=record["payload"],
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class Ledger:
-    """A ledger read back: the header and the events in order."""
-
-    header: Header
-    events: tuple[Event, ...]
-
-    @property
-    def problem(self) -> ProblemSpec:
-        return self.header.problem
-
-    @property
-    def closed(self) -> bool:
-        """True once a ``run_closed`` event has been recorded."""
-        return any(event.event == "run_closed" for event in self.events)
-
-
-def header_record(
-    run_id: str,
-    problem: ProblemSpec,
-    *,
-    selector: str,
-    code_git_sha: str,
-    snapshot: str,
-    registry_version: str,
-) -> dict[str, Any]:
-    """The header line of a run; the provenance ``seed`` is the problem's seed."""
-    return Header(
-        run_id=run_id,
-        problem=problem,
-        seed=problem.seed,
-        snapshot=snapshot,
-        registry_version=registry_version,
-        selector=selector,
-        code_git_sha=code_git_sha,
-    ).to_json()
-
-
-def event_record(
-    seq: int, ts: str, run_id: str, iteration: int, kind: str, payload: Mapping[str, Any]
-) -> dict[str, Any]:
-    """The envelope of one event; the schema, not this function, decides whether it is valid."""
-    return {
-        "seq": seq,
-        "ts": ts,
-        "run_id": run_id,
-        "iteration": iteration,
-        "event": kind,
-        "payload": dict(payload),
-    }
-
-
-EventKey = tuple[str | int, ...]
-
-
-def event_key(event: Event) -> EventKey:
-    """What identifies an event: a ledger holds each key once (RUN-03, RESEARCH Pattern 3).
-
-    A ``selection`` and a ``no_match`` share one key space, so a beam has one or the other.
-    """
-    payload = event.payload
-    if event.event in ("selection", "no_match"):
-        return ("beam", event.iteration, str(payload["beam"]))
-    if event.event == "evaluation":
-        return ("evaluation", event.iteration, str(payload["beam"]), str(payload["candidate_id"]))
-    return (event.event, event.iteration)
+_TAIL_CHUNK = 1 << 16
 
 
 def _check_populations(payload: Mapping[str, Any], where: str) -> None:
@@ -319,25 +174,61 @@ def create(path: Path, header: Mapping[str, Any]) -> None:
         raise LedgerError("ledger exists; use replay") from exc
 
 
-def _refuse_torn_tail(path: Path) -> None:
-    """Refuse to append to a file whose last byte is not LF (Pitfall 2)."""
+def _last_line(path: Path) -> tuple[int, bytes, bool]:
+    """The file size, its last line, and whether that line is the first (the header).
+
+    Refuses a missing or empty file and a file whose last byte is not LF (Pitfall 2); only the
+    bytes of the last line are read.
+    """
     try:
         with path.open("rb") as fh:
-            fh.seek(0, os.SEEK_END)
-            if fh.tell() == 0:
+            size = fh.seek(0, os.SEEK_END)
+            if size == 0:
                 raise LedgerError("ledger is empty")
             fh.seek(-1, os.SEEK_END)
-            last = fh.read(1)
+            if fh.read(1) != _LF:
+                _refuse_missing_lf(path.read_bytes(), str(path))
+            start, block = size - 1, b""  # block holds bytes [start, size - 1)
+            while start > 0:
+                step = min(_TAIL_CHUNK, start)
+                start -= step
+                fh.seek(start)
+                block = fh.read(step) + block
+                if _LF in block:
+                    break
     except FileNotFoundError as exc:
         raise LedgerError("ledger does not exist") from exc
-    if last != _LF:
-        _refuse_missing_lf(path.read_bytes(), str(path))
+    cut = block.rfind(_LF)
+    return size, block[cut + 1 :], cut < 0 and start == 0
+
+
+def _require_next(path: Path, event: Mapping[str, Any]) -> int:
+    """Refuse an event that does not directly follow the recorded tail; return the file size."""
+    size, line, first = _last_line(path)
+    tail = _parse_line(line, f"{path}: last line")
+    if not isinstance(tail, dict):
+        raise LedgerFormatError(f"{path}: the last line is not an object")
+    last = 0 if first else tail.get("seq")
+    if (
+        last != event["seq"] - 1
+        or tail.get("event") == "run_closed"
+        or tail.get("run_id") != event["run_id"]
+    ):
+        raise LedgerIntegrityError(
+            f"append of seq {event['seq']} does not follow the recorded tail (seq {last}, "
+            f"{tail.get('event', 'header')}) of run {tail.get('run_id')}"
+        )
+    return size
 
 
 def append(path: Path, event: Mapping[str, Any]) -> None:
-    """Append one validated event as one LF-terminated line, then fsync (a torn tail refuses)."""
+    """Append one validated event as one LF-terminated line, then fsync.
+
+    A torn tail refuses, and so does an event whose ``seq`` is not the last ``seq`` plus one, one
+    after ``run_closed`` and one of another run (CR-01, belt and braces beside the run lock).
+    """
     data = _line_bytes(event, "event", "event")
-    _refuse_torn_tail(path)
+    _require_next(path, event)
     _write(path, "ab", data)
 
 

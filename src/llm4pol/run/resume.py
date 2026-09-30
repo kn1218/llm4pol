@@ -42,7 +42,7 @@ from llm4pol.evaluate import (
 )
 from llm4pol.evaluate.backends.table import TableBackend
 from llm4pol.evaluate.cache import key_for
-from llm4pol.run import population, reduce
+from llm4pol.run import lock, population, reduce
 from llm4pol.run.config import (
     CodeIdentity,
     ProblemSpec,
@@ -57,6 +57,7 @@ from llm4pol.run.ledger import (
     Event,
     EventKey,
     Ledger,
+    LedgerError,
     LedgerIntegrityError,
     append,
     create,
@@ -312,7 +313,22 @@ def _run_to_close(
 
 
 def drive(run_dir: Path, *, root: Path, selector: Selector, clock: Clock) -> Outcome:
-    """Bring the run of ``run_dir`` to its close from whatever prefix its ledger records."""
+    """Bring the run of ``run_dir`` to its close from whatever prefix its ledger records.
+
+    The ledger is locked for the whole call (``RunLocked`` when another process holds it, before
+    anything is read or appended), so two drivers never write one run (CR-01).
+    """
+    path = run_dir / LEDGER_NAME
+    try:
+        with lock.held(path):
+            return _drive_locked(run_dir, root=root, selector=selector, clock=clock)
+    except FileNotFoundError as exc:
+        if path.exists():
+            raise
+        raise LedgerError(f"{path}: ledger does not exist") from exc
+
+
+def _drive_locked(run_dir: Path, *, root: Path, selector: Selector, clock: Clock) -> Outcome:
     path = run_dir / LEDGER_NAME
     recorded = read(path)
     if recorded.header.selector != selector.identity:
